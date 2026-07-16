@@ -1,16 +1,33 @@
+@import url('https://fonts.googleapis.com/css2?family=Permanent+Marker&display=swap');
+
 :root {
-  color-scheme: dark;
-  font-family: Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  /* Default (light/yellow) theme */
+  color-scheme: light;
+  font-family: 'Permanent Marker', Inter, system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   line-height: 1.5;
   font-weight: 400;
-  background: #09090f;
-  color: #f5f7ff;
+  background: #fff9e6;
+  color: #1f2937;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  --accent: #8b5cf6;
-  --accent-soft: rgba(139, 92, 246, 0.18);
+  --accent: #f59e0b; /* yellow detail */
+  --accent-soft: rgba(245, 158, 11, 0.12);
+  --bg-card: rgba(255,255,255,0.7);
+  --dial-bg: #fff3d6;
+  --dial-text: #92400e;
+}
+
+/* Dark theme overrides */
+.dark-theme {
+  --accent: #f59e0b;
+  --accent-soft: rgba(245, 158, 11, 0.12);
+  --bg-card: rgba(11, 15, 30, 0.9);
+  --dial-bg: #151516;
+  --dial-text: #f6e7b3;
+  background: radial-gradient(circle at top, #1f2430, #0b0f1e 60%);
+  color: #f5f7ff;
 }
 
 * {
@@ -20,7 +37,7 @@
 body {
   margin: 0;
   min-height: 100vh;
-  background: radial-gradient(circle at top, #191929, #09090f 60%);
+  background: radial-gradient(circle at top, #fff8e6, #fff6e0 60%);
 }
 
 button,
@@ -49,10 +66,10 @@ button {
 .hero,
 .meter-card,
 .panel {
-  background: rgba(11, 15, 30, 0.9);
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-card, rgba(255,255,255,0.7));
+  border: 1px solid rgba(0,0,0,0.06);
   border-radius: 24px;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.08);
 }
 
 .hero {
@@ -109,6 +126,51 @@ h1 {
   font-size: clamp(3rem, 18vw, 5.5rem);
   font-weight: 700;
   letter-spacing: -0.03em;
+}
+
+.dial-wrap {
+  position: relative;
+}
+
+.dial {
+  width: 120px;
+  height: 120px;
+  touch-action: none;
+  cursor: grab;
+}
+
+.dial:active { cursor: grabbing; }
+
+.scribble-hint {
+  position: absolute;
+  top: 6px;
+  left: 130px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.scribble {
+  font-family: 'Permanent Marker', cursive;
+  color: var(--accent);
+  font-size: 16px;
+  transform: rotate(-6deg);
+}
+
+.scribble-arrow {
+  font-size: 20px;
+  color: var(--accent);
+}
+
+.graph-tooltip {
+  position: absolute;
+  pointer-events: none;
+  background: rgba(0,0,0,0.8);
+  color: white;
+  padding: 6px 8px;
+  border-radius: 8px;
+  font-size: 13px;
+  transform: translate(-50%, -110%);
 }
 
 .bpm-label,
@@ -209,6 +271,14 @@ input[type='range'] {
   opacity: 0.6;
   cursor: not-allowed;
   box-shadow: none;
+}
+
+.graph-wrap {
+  position: relative;
+}
+
+.info-page {
+  scroll-margin-top: 1rem;
 }
 
 @media (min-width: 700px) {

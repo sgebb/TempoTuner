@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 
 type Point = {
   bpm: number;
@@ -16,6 +16,9 @@ const getAccuracyColor = (diff: number) => {
 const App = () => {
   const [targetBpm, setTargetBpm] = useState(100);
   const [points, setPoints] = useState<Point[]>([]);
+  const [useTarget, setUseTarget] = useState(true);
+  const [isDark, setIsDark] = useState(false);
+  const [tooltip, setTooltip] = useState<null | { x: number; y: number; bpm: number; index: number }>(null);
   const [isMetronomeOn, setIsMetronomeOn] = useState(false);
   const [isFadingOut, setIsFadingOut] = useState(false);
   const [statusText, setStatusText] = useState('Tap to begin');
@@ -29,6 +32,8 @@ const App = () => {
   const gainRef = useRef<GainNode | null>(null);
   const timerRef = useRef<number | null>(null);
   const fadeTimerRef = useRef<number | null>(null);
+  const dialRef = useRef<SVGSVGElement | null>(null);
+  const draggingRef = useRef(false);
   const lastTapRef = useRef<number | null>(null);
 
   const updateStats = (recentPoints: Point[]) => {
@@ -113,6 +118,20 @@ const App = () => {
     setStatusText(`Metronome at ${targetBpm} BPM`);
   };
 
+  const fadeOut = (duration = 1500) => {
+    const ctx = audioContextRef.current;
+    if (!gainRef.current || !ctx) return;
+    gainRef.current.gain.cancelScheduledValues(ctx.currentTime);
+    gainRef.current.gain.setValueAtTime(gainRef.current.gain.value || 0.08, ctx.currentTime);
+    gainRef.current.gain.linearRampToValueAtTime(0.0001, ctx.currentTime + duration / 1000);
+    if (fadeTimerRef.current) window.clearTimeout(fadeTimerRef.current);
+    fadeTimerRef.current = window.setTimeout(() => {
+      stopMetronome();
+      setStatusText('Metronome faded out');
+    }, duration + 50);
+    setIsFadingOut(true);
+  };
+
   const toggleMetronome = () => {
     if (isMetronomeOn) {
       stopMetronome();
@@ -160,6 +179,8 @@ const App = () => {
         return updated;
       });
       setStatusText(`${clampedBpm} BPM • ${Math.abs(targetDiff)} BPM ${targetDiff >= 0 ? 'above' : 'below'} target`);
+      // fade metronome quickly when user starts tapping so it doesn't interfere
+      if (isMetronomeOn) fadeOut(1500);
     } else {
       setStatusText('First tap recorded');
     }
@@ -176,7 +197,32 @@ const App = () => {
 
   const handleTargetChange = (value: number) => {
     setTargetBpm(value);
-    setIsFadingOut(true);
+    if (isMetronomeOn) fadeOut(4000);
+  };
+
+  // Dial pointer handlers
+  const handleDialPointerDown = (e: React.PointerEvent) => {
+    draggingRef.current = true;
+    (e.target as Element).setPointerCapture(e.pointerId);
+    handleDialPointerMove(e);
+  };
+  const handleDialPointerMove = (e: React.PointerEvent) => {
+    if (!draggingRef.current || !dialRef.current) return;
+    const rect = dialRef.current.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const angle = Math.atan2(e.clientY - cy, e.clientX - cx); // -PI..PI
+    // convert so 0 is top and range is 0..360 clockwise
+    let deg = (angle * 180) / Math.PI + 90;
+    if (deg < 0) deg += 360;
+    const fraction = deg / 360;
+    const bpm = Math.round(40 + fraction * (220 - 40));
+    setTargetBpm(bpm);
+  };
+  const handleDialPointerUp = (e: React.PointerEvent) => {
+    draggingRef.current = false;
+    try { (e.target as Element).releasePointerCapture(e.pointerId); } catch {}
+    if (isMetronomeOn) fadeOut(4000);
   };
 
   const graphWidth = 320;
@@ -190,11 +236,15 @@ const App = () => {
     return safePoints.map((point, index) => {
       const x = padding + (index / Math.max(1, safePoints.length - 1)) * (graphWidth - padding * 2);
       const y = padding + ((maxBpm - point.bpm) / (maxBpm - minBpm)) * (graphHeight - padding * 2);
-      return { x, y, color: getAccuracyColor(point.diff) };
+      return { x, y, color: getAccuracyColor(point.diff), bpm: point.bpm };
     });
   }, [points, targetBpm]);
 
   const targetY = padding + ((maxBpm - targetBpm) / (maxBpm - minBpm)) * (graphHeight - padding * 2);
+
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark-theme', isDark);
+  }, [isDark]);
 
   return (
     <div className="app-shell">
@@ -204,15 +254,36 @@ const App = () => {
           <h1>TempoTuner</h1>
           <p className="hero-copy">Train rhythm, beat, and timing with a fast metronome app for singers, musicians, and practice sessions.</p>
         </div>
-        <button className="ghost-button" onClick={resetSession}>New session</button>
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button className="ghost-button" onClick={() => setIsDark((s) => !s)}>{isDark ? 'Light' : 'Dark'}</button>
+          <button className="ghost-button" onClick={resetSession}>New session</button>
+        </div>
       </header>
 
       <section className="meter-card">
-        <div className="bpm-stack">
+        <div style={{ display: 'flex', gap: 16, alignItems: 'center' }}>
+          <div className="bpm-stack">
           <p className="status">{statusText}</p>
-          <div className="bpm-display">{displayBpm}</div>
+          <div className="bpm-display" style={{ color: currentBpm > 0 && useTarget ? getAccuracyColor(currentBpm - targetBpm) : undefined }}>{displayBpm}</div>
           <div className="bpm-label">Current BPM</div>
         </div>
+
+          <div className="dial-wrap">
+            <svg ref={dialRef} className="dial" viewBox="0 0 120 120" onPointerDown={handleDialPointerDown} onPointerMove={handleDialPointerMove} onPointerUp={handleDialPointerUp}>
+              <circle cx="60" cy="60" r="50" fill="var(--dial-bg)" stroke="rgba(0,0,0,0.08)" />
+              <g className="dial-knob" style={{ transform: `rotate(${((targetBpm - 40) / (220 - 40)) * 360}deg)`, transformOrigin: '60px 60px' }}>
+                <rect x="58" y="10" width="4" height="28" rx="2" fill="var(--accent)" />
+              </g>
+              <text x="50%" y="68%" textAnchor="middle" fontSize="14" fill="var(--dial-text)" fontWeight="700">{targetBpm}</text>
+            </svg>
+
+            {points.length === 0 && (
+              <div className="scribble-hint">
+                <div className="scribble">turn to set target bpm</div>
+                <div className="scribble-arrow">➜</div>
+              </div>
+            )}
+          </div>
 
         <button className="tap-button" onPointerDown={handleTap}>
           Tap beat
@@ -263,8 +334,9 @@ const App = () => {
           <h2>Tempo graph</h2>
           <span className="pill">Live</span>
         </div>
+        <div className="graph-wrap" style={{ position: 'relative' }}>
         <svg viewBox={`0 0 ${graphWidth} ${graphHeight}`} className="graph" role="img" aria-label="Tempo graph showing your measured BPM against the target line">
-          <line x1={padding} y1={targetY} x2={graphWidth - padding} y2={targetY} stroke="var(--accent)" strokeDasharray="4 4" />
+          {useTarget && <line x1={padding} y1={targetY} x2={graphWidth - padding} y2={targetY} stroke="var(--accent)" strokeDasharray="4 4" />}
           <line x1={padding} y1={padding} x2={padding} y2={graphHeight - padding} stroke="rgba(255,255,255,0.18)" />
           <line x1={padding} y1={graphHeight - padding} x2={graphWidth - padding} y2={graphHeight - padding} stroke="rgba(255,255,255,0.18)" />
           <path
@@ -284,9 +356,31 @@ const App = () => {
             </linearGradient>
           </defs>
           {pointsForChart.map((point, index) => (
-            <circle key={`${point.x}-${point.y}-${index}`} cx={point.x} cy={point.y} r="5" fill={point.color} />
+            <circle
+              key={`${point.x}-${point.y}-${index}`}
+              cx={point.x}
+              cy={point.y}
+              r="6"
+              fill={point.color}
+              onPointerEnter={(e) => {
+                const rect = (e.currentTarget as Element).closest('.graph')?.getBoundingClientRect();
+                if (rect) setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, bpm: (point as any).bpm, index });
+              }}
+              onPointerLeave={() => setTooltip(null)}
+              onClick={(e) => {
+                const rect = (e.currentTarget as Element).closest('.graph')?.getBoundingClientRect();
+                if (rect) setTooltip({ x: e.clientX - rect.left, y: e.clientY - rect.top, bpm: (point as any).bpm, index });
+              }}
+            />
           ))}
         </svg>
+        {tooltip && (
+          <div className="graph-tooltip" style={{ left: tooltip.x, top: tooltip.y }}>
+            <div>{tooltip.bpm} BPM</div>
+            <div style={{ fontSize: 12, opacity: 0.85 }}>Point #{tooltip.index + 1}</div>
+          </div>
+        )}
+        </div>
       </section>
 
       <section className="panel compact">
@@ -310,6 +404,22 @@ const App = () => {
         <p>
           TempoTuner is a rhythm practice tool for singers and musicians who want to build steady timing, improve beat accuracy, and keep tempo without distractions.
         </p>
+      </section>
+
+      <section className="panel info-page">
+        <div className="panel-header">
+          <h2>How to use</h2>
+        </div>
+        <p>Turn the dial to set the target BPM, then tap along to the beat. The center number updates with your last tap and turns green when you’re close to target.</p>
+        <p>The graph updates automatically, and you can hover or tap the bubbles to see each measurement.</p>
+        <div className="panel-header" style={{ marginTop: '1rem' }}>
+          <h2>Who made it</h2>
+        </div>
+        <p>Built by a musician-friendly developer team with a focus on fast, playful tempo practice.</p>
+        <div className="panel-header" style={{ marginTop: '1rem' }}>
+          <h2>Privacy</h2>
+        </div>
+        <p>No data is sent out. TempoTuner works entirely in your browser, so your tap history stays local and private.</p>
       </section>
     </div>
   );
