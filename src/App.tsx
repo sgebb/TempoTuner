@@ -284,6 +284,7 @@ const App = () => {
               </div>
             )}
           </div>
+        </div>
 
         <button className="tap-button" onPointerDown={handleTap}>
           Tap beat
