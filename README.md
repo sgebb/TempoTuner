@@ -35,6 +35,7 @@ npm run build
 ## GitHub Pages deployment
 
 This app is configured for GitHub Pages with a Vite base path of `/TempoTuner/`.
+For the production site at https://tempotuner.app/, you can point your hosting setup at the generated `dist` folder or switch the base path if you host from a custom domain root.
 
 1. Commit the project to your GitHub repository.
 2. In the repository settings, enable GitHub Pages and choose the `main` branch with the `/root` folder.
