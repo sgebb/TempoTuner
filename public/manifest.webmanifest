@@ -1,17 +1,26 @@
 {
-  "name": "TempoTuner",
+  "name": "TempoTuner — Tap Tempo Trainer",
   "short_name": "TempoTuner",
-  "description": "A fast metronome app and beat practice tool for singers and musicians.",
-  "start_url": "/TempoTuner/",
+  "description": "Tap the beat while you sing or play and see exactly where your tempo drifted. Free rhythm practice tool with BPM graph, fading metronome and voice recording.",
+  "start_url": "/",
+  "scope": "/",
   "display": "standalone",
-  "background_color": "#09090f",
-  "theme_color": "#09090f",
+  "orientation": "portrait",
+  "background_color": "#fdf8ef",
+  "theme_color": "#fdf8ef",
+  "categories": ["music", "education", "utilities"],
   "icons": [
     {
-      "src": "/TempoTuner/favicon.svg",
+      "src": "/favicon.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
+    },
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
     }
   ]
 }

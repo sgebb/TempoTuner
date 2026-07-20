@@ -9,11 +9,10 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
   </React.StrictMode>
 );
 
-if ('serviceWorker' in navigator) {
-  // Register the service worker so the app can load quickly as a lightweight PWA.
+if ('serviceWorker' in navigator && import.meta.env.PROD) {
   window.addEventListener('load', () => {
-    navigator.serviceWorker.register('/TempoTuner/sw.js').catch(() => {
-      // Service worker registration is optional; failures should not block the app.
+    navigator.serviceWorker.register('/sw.js').catch(() => {
+      // Service worker is optional; failures should not block the app.
     });
   });
 }

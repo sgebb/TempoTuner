@@ -2,42 +2,103 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
-    <meta name="theme-color" content="#09090f" />
-    <meta name="description" content="TempoTuner is a fast metronome app and beat practice tool for singers and musicians. Practice rhythm, tempo, and timing with instant BPM feedback." />
-    <meta name="keywords" content="metronome app, beat practice tool, rhythm practice, tempo trainer, BPM tool, music practice app" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no" />
+    <meta name="theme-color" content="#fdf8ef" />
+    <title>TempoTuner — Tap Tempo Trainer & Rhythm Checker | Free Online BPM Practice Tool</title>
+    <meta
+      name="description"
+      content="Free online tempo trainer: tap the beat while you sing or play and instantly see if you rushed or slowed down. BPM graph, fading metronome, voice recording — no install, no account."
+    />
     <meta name="author" content="TempoTuner" />
     <link rel="canonical" href="https://tempotuner.app/" />
-    <link rel="manifest" href="/TempoTuner/manifest.webmanifest" />
-    <link rel="icon" href="/TempoTuner/favicon.svg" type="image/svg+xml" />
-    <meta property="og:title" content="TempoTuner | Metronome App for Rhythm Practice & Beat Timing" />
-    <meta property="og:description" content="Use TempoTuner as a simple metronome app for beat practice, rhythm training, and tempo control." />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <link rel="icon" href="/favicon.svg?v=2" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="/favicon.svg?v=2" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="TempoTuner" />
+    <meta property="og:title" content="TempoTuner — Tap Tempo Trainer & Rhythm Checker" />
+    <meta
+      property="og:description"
+      content="Tap the beat while you sing or play and see exactly where your tempo drifted. Free rhythm practice tool with BPM graph, fading metronome and voice recording."
+    />
     <meta property="og:type" content="website" />
     <meta property="og:url" content="https://tempotuner.app/" />
-    <meta property="og:image" content="https://tempotuner.app/favicon.svg" />
-    <meta name="twitter:card" content="summary" />
-    <meta name="twitter:title" content="TempoTuner | Metronome App for Rhythm Practice & Beat Timing" />
-    <meta name="twitter:description" content="A fast metronome app and beat practice tool for singers and musicians." />
-    <title>TempoTuner | Metronome App for Rhythm Practice & Beat Timing</title>
-  </head>
-  <body>
-    <div id="root"></div>
+    <meta property="og:image" content="https://tempotuner.app/og-image.png" />
+    <meta property="og:site_name" content="TempoTuner" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="TempoTuner — Tap Tempo Trainer & Rhythm Checker" />
+    <meta
+      name="twitter:description"
+      content="Tap the beat while you sing and see exactly where you rushed or slowed down. Free, works in any browser."
+    />
+    <meta name="twitter:image" content="https://tempotuner.app/og-image.png" />
     <script type="application/ld+json">
       {
         "@context": "https://schema.org",
-        "@type": "WebApplication",
-        "name": "TempoTuner",
-        "url": "https://tempotuner.app/",
-        "description": "A fast metronome app and beat practice tool for singers and musicians.",
-        "applicationCategory": "MusicApplication",
-        "operatingSystem": "Web",
-        "offers": {
-          "@type": "Offer",
-          "price": "0",
-          "priceCurrency": "USD"
-        }
+        "@graph": [
+          {
+            "@type": "WebApplication",
+            "name": "TempoTuner",
+            "url": "https://tempotuner.app/",
+            "description": "Free online tap tempo trainer and rhythm consistency checker. Tap the beat while singing or playing, see your BPM on a live graph, use a fading metronome, and record yourself to hear where your timing drifted.",
+            "applicationCategory": "MusicApplication",
+            "operatingSystem": "Any",
+            "browserRequirements": "Requires JavaScript",
+            "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+            "featureList": [
+              "Tap tempo BPM detection",
+              "Tempo consistency graph",
+              "Target BPM with fading metronome",
+              "Voice recording with synced playback",
+              "Shareable session image",
+              "Works offline as a PWA"
+            ]
+          },
+          {
+            "@type": "FAQPage",
+            "mainEntity": [
+              {
+                "@type": "Question",
+                "name": "How do I check if I am singing in tempo?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Open TempoTuner, start singing, and tap anywhere on the screen to the beat. The app measures your BPM on every tap and draws a graph showing exactly where you rushed or slowed down."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "What is a fading metronome?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Set a target BPM and the metronome counts you in at full volume, then slowly fades out. You keep the tempo on your own, and the graph shows how steady you stayed."
+                }
+              },
+              {
+                "@type": "Question",
+                "name": "Is TempoTuner free and private?",
+                "acceptedAnswer": {
+                  "@type": "Answer",
+                  "text": "Yes. TempoTuner is free, runs entirely in your browser, and needs no account. Taps and voice recordings never leave your device."
+                }
+              }
+            ]
+          }
+        ]
       }
     </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <noscript>
+      <h1>TempoTuner — tap tempo trainer and rhythm checker</h1>
+      <p>
+        TempoTuner is a free online rhythm practice tool for singers and musicians. Tap the beat
+        while you sing or play, see your tempo in BPM on a live graph, practice with a metronome
+        that fades out, and record yourself to hear exactly where your timing drifted. Please
+        enable JavaScript to use the app.
+      </p>
+    </noscript>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
