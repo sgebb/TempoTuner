@@ -27,8 +27,8 @@ const HelpModal = ({ open, onClose }: Props) => (
         </p>
         <p>
           <strong>Set a target BPM</strong> to get a dashed target line on the graph and unlock the
-          metronome. The metronome counts you in, then <em>fades out slowly</em> — keep going on your
-          own and see how steady you stayed.
+          metronome. The metronome counts you in, then <em>fades out over eight beats</em> — keep
+          going on your own and see how steady you stayed.
         </p>
         <p>
           <strong>Record</strong> your voice while you tap, then play it back: a playhead moves along
@@ -37,6 +37,11 @@ const HelpModal = ({ open, onClose }: Props) => (
         <p>
           <strong>Share</strong> exports your session — stats and graph — as an image with your own
           note, and <strong>reset</strong> clears taps and recording but keeps your target.
+        </p>
+        <p>
+          <strong>Install it</strong> — TempoTuner works as an app on your phone: open your
+          browser menu and choose <em>Add to Home Screen</em> (or <em>Install</em>). It launches
+          full-screen from its own icon and works offline.
         </p>
         <h3>Why train tempo?</h3>
         <p>

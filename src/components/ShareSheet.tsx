@@ -43,6 +43,11 @@ const ShareSheet = ({ points, stats, targetBpm, dark, onClose }: Props) => {
           rows={3}
         />
         <p className="sheet-hint">Your note, stats and graph become one image you can share anywhere.</p>
+        {stats && (
+          <p className="sheet-hint">
+            Coach's note on the image: <em>“{stats.comment}”</em>
+          </p>
+        )}
         <div className="sheet-actions">
           <button className="btn btn-primary" onClick={doShare} disabled={busy}>
             {busy ? 'Creating image…' : 'Share as image'}

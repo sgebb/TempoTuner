@@ -13,10 +13,17 @@ export type Stats = {
   /** second-half average minus first-half average (positive = rushing) */
   drift: number;
   count: number;
+  /** 0-100 overall pace-keeping score: steadiness minus drift/target penalties */
+  score: number;
+  /** one-line coach comment, e.g. "you sped up around 1:23" */
+  comment: string;
 };
 
-/** Intervals outside this range are treated as a pause, not a beat. */
-export const MIN_INTERVAL_MS = 240; // 250 BPM
+/**
+ * Intervals shorter than this are treated as touchscreen double-fires, longer
+ * ones as a pause — neither counts as a beat.
+ */
+export const MIN_INTERVAL_MS = 100; // 600 BPM
 export const MAX_INTERVAL_MS = 2400; // 25 BPM
 
 export const MIN_BPM = 30;
@@ -42,7 +49,7 @@ export function currentBpm(points: TapPoint[]): number | null {
   return Math.round(median);
 }
 
-export function computeStats(points: TapPoint[]): Stats | null {
+export function computeStats(points: TapPoint[], targetBpm: number | null = null): Stats | null {
   if (points.length < 2) return null;
   const bpms = points.map((p) => p.bpm);
   const avg = bpms.reduce((s, b) => s + b, 0) / bpms.length;
@@ -56,7 +63,56 @@ export function computeStats(points: TapPoint[]): Stats | null {
   const secondAvg = bpms.slice(-half).reduce((s, b) => s + b, 0) / half;
   const drift = Math.round(secondAvg - firstAvg);
 
-  return { avg: Math.round(avg), stability, drift, count: points.length };
+  const driftPenalty = Math.min(30, Math.max(0, (Math.abs(drift) - 2) * 1.5));
+  const targetPenalty = targetBpm !== null ? Math.min(25, Math.abs(avg - targetBpm) * 1.2) : 0;
+  const score = Math.max(0, Math.min(100, Math.round(stability - driftPenalty - targetPenalty)));
+
+  const comment = buildComment(points, avg, targetBpm, score);
+
+  return { avg: Math.round(avg), stability, drift, count: points.length, score, comment };
+}
+
+const formatClock = (ms: number) => {
+  const s = Math.round(ms / 1000);
+  return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
+};
+
+/**
+ * Finds the strongest sustained speed-up / slow-down (moving window vs the
+ * target or session average) and turns it into an encouraging coach one-liner.
+ */
+function buildComment(
+  points: TapPoint[],
+  avg: number,
+  targetBpm: number | null,
+  score: number
+): string {
+  const baseline = targetBpm ?? avg;
+  const W = 4;
+  let up = { dev: 0, t: 0 };
+  let down = { dev: 0, t: 0 };
+  for (let i = 0; i + W <= points.length; i++) {
+    let sum = 0;
+    for (let j = i; j < i + W; j++) sum += points[j].bpm;
+    const dev = sum / W - baseline;
+    const t = points[i + Math.floor(W / 2)].t - points[0].t;
+    if (dev > up.dev) up = { dev, t };
+    if (dev < down.dev) down = { dev, t };
+  }
+
+  const threshold = Math.max(4, baseline * 0.04);
+  const notes: string[] = [];
+  if (up.dev > threshold) notes.push(`make sure not to speed up around ${formatClock(up.t)}`);
+  if (-down.dev > threshold) notes.push(`careful not to drag around ${formatClock(down.t)}`);
+  if (notes.length > 0) {
+    const praise = score >= 85 ? 'great job!' : score >= 60 ? 'nice work!' : 'keep at it —';
+    return `${praise} ${notes.join(', and ')}`;
+  }
+
+  if (points.length < 8) return 'good start — tap a bit longer for a deeper read';
+  if (score >= 90) return 'stellar — steady as a metronome!';
+  if (score >= 75) return 'great job — nice and steady all the way';
+  return 'good effort — a few wobbles, but no big runaways';
 }
 
 export function driftLabel(drift: number): string {

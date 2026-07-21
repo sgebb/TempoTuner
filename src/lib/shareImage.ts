@@ -72,8 +72,8 @@ export async function renderShareImage(data: ShareData): Promise<Blob> {
 
   if (stats) {
     const line1 = [
+      `score ${stats.score}/100`,
       data.targetBpm !== null ? `target ${data.targetBpm}` : null,
-      `${stats.stability}% steady`,
     ]
       .filter(Boolean)
       .join('   ·   ');
@@ -88,7 +88,7 @@ export async function renderShareImage(data: ShareData): Promise<Blob> {
   const gx = 64;
   const gy = 560;
   const gw = W - 128;
-  const gh = 380;
+  const gh = 340;
   ctx.strokeStyle = data.dark ? '#2c2c40' : '#e8e0d0';
   ctx.lineWidth = 2;
   ctx.strokeRect(gx, gy, gw, gh);
@@ -96,8 +96,13 @@ export async function renderShareImage(data: ShareData): Promise<Blob> {
   if (data.points.length > 0) {
     const bpms = data.points.map((p) => p.bpm);
     if (data.targetBpm !== null) bpms.push(data.targetBpm);
-    const lo = Math.min(...bpms) - 10;
-    const hi = Math.max(...bpms) + 10;
+    let lo = Math.min(...bpms) - 10;
+    let hi = Math.max(...bpms) + 10;
+    if (hi - lo < 50) {
+      const mid = (lo + hi) / 2;
+      lo = mid - 25;
+      hi = mid + 25;
+    }
     const t0 = data.points[0].t;
     const t1 = Math.max(data.points[data.points.length - 1].t, t0 + 1000);
     const px = (t: number) => gx + 30 + ((t - t0) / (t1 - t0)) * (gw - 60);
@@ -114,7 +119,7 @@ export async function renderShareImage(data: ShareData): Promise<Blob> {
       ctx.setLineDash([]);
     }
 
-    // Smoothed dotted trend line, split at pauses — matches the in-app graph.
+    // Smoothed dashed trend line, split at pauses — matches the in-app graph.
     const GAP_MS = 4000;
     const segments: TapPoint[][] = [];
     for (const p of data.points) {
@@ -126,7 +131,7 @@ export async function renderShareImage(data: ShareData): Promise<Blob> {
     ctx.lineWidth = 5;
     ctx.lineCap = 'round';
     ctx.lineJoin = 'round';
-    ctx.setLineDash([0.1, 16]);
+    ctx.setLineDash([16, 12]);
     for (const seg of segments) {
       ctx.beginPath();
       seg.forEach((p, i) => {
@@ -142,16 +147,24 @@ export async function renderShareImage(data: ShareData): Promise<Blob> {
     }
     ctx.setLineDash([]);
 
-    for (const p of data.points) {
+    // Like the in-app graph: dots only for the most recent taps.
+    for (const p of data.points.slice(-10)) {
       ctx.fillStyle = dotColor(p.bpm);
       ctx.beginPath();
-      ctx.arc(px(p.t), py(p.bpm), data.points.length > 40 ? 5 : 8, 0, Math.PI * 2);
+      ctx.arc(px(p.t), py(p.bpm), 8, 0, Math.PI * 2);
       ctx.fill();
     }
   } else {
     ctx.fillStyle = muted;
     ctx.font = '36px "Segoe UI", system-ui, sans-serif';
     ctx.fillText('No taps recorded', gx + 40, gy + gh / 2);
+  }
+
+  // Coach comment under the graph
+  if (stats?.comment) {
+    ctx.fillStyle = ACCENT;
+    ctx.font = 'italic 600 40px Georgia, serif';
+    ctx.fillText(`“${stats.comment}”`, 64, gy + gh + 62);
   }
 
   // Footer
@@ -194,9 +207,17 @@ function wrapText(
 
 export async function shareOrDownload(blob: Blob, message: string) {
   const file = new File([blob], 'tempotuner-session.png', { type: 'image/png' });
+  // The link goes into `text` because most apps (WhatsApp included) drop the
+  // `url` field when files are attached.
+  const text = message ? `${message}\n\nhttps://tempotuner.app` : 'https://tempotuner.app';
   if (navigator.canShare?.({ files: [file] })) {
     try {
-      await navigator.share({ files: [file], text: message, title: 'TempoTuner session' });
+      await navigator.share({
+        files: [file],
+        text,
+        url: 'https://tempotuner.app',
+        title: 'TempoTuner session',
+      });
       return;
     } catch (err) {
       if ((err as DOMException)?.name === 'AbortError') return;

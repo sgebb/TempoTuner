@@ -18,6 +18,16 @@ export const MetronomeMark = ({ size = 22 }: { size?: number }) => (
   </svg>
 );
 
+/** Standard "share" mark: three connected nodes. */
+export const ShareNodes = ({ size = 17 }: { size?: number }) => (
+  <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
+    <path d="M8.6 10.8 L15.4 6.8 M8.6 13.2 L15.4 17.2" stroke="currentColor" strokeWidth="2" />
+    <circle cx="18" cy="5.5" r="2.7" fill="currentColor" />
+    <circle cx="6" cy="12" r="2.7" fill="currentColor" />
+    <circle cx="18" cy="18.5" r="2.7" fill="currentColor" />
+  </svg>
+);
+
 /** Monochrome bullseye: two rings and a filled centre. */
 export const Bullseye = ({ size = 14 }: { size?: number }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">

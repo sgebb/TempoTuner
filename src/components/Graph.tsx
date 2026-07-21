@@ -17,8 +17,23 @@ export function graphDomain(points: TapPoint[], targetBpm: number | null, volume
   const lo = bpms.length ? Math.min(...bpms) : 80;
   const hi = bpms.length ? Math.max(...bpms) : 140;
   const pad = Math.max(8, (hi - lo) * 0.2);
-  const minY = Math.max(20, lo - pad);
-  const maxY = Math.min(250, hi + pad);
+  let minY = Math.max(20, lo - pad);
+  let maxY = Math.min(650, hi + pad);
+
+  // Never zoom in tighter than a 50 BPM window — a steady take should look flat.
+  const MIN_SPAN = 50;
+  if (maxY - minY < MIN_SPAN) {
+    const mid = (minY + maxY) / 2;
+    minY = mid - MIN_SPAN / 2;
+    maxY = mid + MIN_SPAN / 2;
+    if (minY < 20) {
+      maxY += 20 - minY;
+      minY = 20;
+    } else if (maxY > 650) {
+      minY -= maxY - 650;
+      maxY = 650;
+    }
+  }
 
   const times = points.map((p) => p.t);
   if (volume.length) times.push(volume[0].t, volume[volume.length - 1].t);
@@ -174,18 +189,13 @@ const Graph = ({ points, targetBpm, volume, playbackTime, onSeek }: Props) => {
             strokeWidth={2.2}
             strokeLinejoin="round"
             strokeLinecap="round"
-            strokeDasharray="0.1 6.5"
+            strokeDasharray="7 5"
             opacity={0.75}
           />
         )}
-        {points.map((p, i) => (
-          <circle
-            key={i}
-            cx={x(p.t)}
-            cy={y(p.bpm)}
-            r={points.length > 40 ? 2.5 : 4}
-            fill={accuracyColor(p.bpm, targetBpm)}
-          />
+        {/* only the most recent taps get dots — older history lives in the trend line */}
+        {points.slice(-10).map((p) => (
+          <circle key={p.t} cx={x(p.t)} cy={y(p.bpm)} r={4} fill={accuracyColor(p.bpm, targetBpm)} />
         ))}
         {playX !== null && (
           <line x1={playX} x2={playX} y1={padT / 2} y2={h - padB} stroke="var(--bad)" strokeWidth={2} />

@@ -1,12 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Graph from './components/Graph';
-import { Bullseye, MetronomeMark } from './components/icons';
+import { Bullseye, MetronomeMark, ShareNodes } from './components/icons';
 import HelpModal from './components/HelpModal';
 import TargetSheet from './components/TargetSheet';
 import ShareSheet from './components/ShareSheet';
 import { useMetronome } from './hooks/useMetronome';
 import { useRecorder } from './hooks/useRecorder';
-import { accuracyColor, computeStats, currentBpm, driftLabel, tapsToPoints } from './lib/tempo';
+import { accuracyColor, computeStats, currentBpm, tapsToPoints } from './lib/tempo';
 
 type Ripple = { id: number; x: number; y: number };
 
@@ -33,13 +33,20 @@ const App = () => {
   const [shareOpen, setShareOpen] = useState(false);
   const rippleId = useRef(0);
   const metronomePendingRef = useRef(false);
+  const activeTapRef = useRef<{
+    pointerId: number;
+    tapTime: number;
+    rippleId: number;
+    x: number;
+    y: number;
+  } | null>(null);
 
   const metronome = useMetronome();
   const recorder = useRecorder();
 
   const points = useMemo(() => tapsToPoints(taps), [taps]);
   const bpm = useMemo(() => currentBpm(points), [points]);
-  const stats = useMemo(() => computeStats(points), [points]);
+  const stats = useMemo(() => computeStats(points, targetBpm), [points, targetBpm]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
@@ -55,18 +62,48 @@ const App = () => {
   }, [targetBpm]);
 
   const registerTap = useCallback((x: number, y: number) => {
-    setTaps((prev) => [...prev, performance.now()]);
+    const tapTime = performance.now();
+    setTaps((prev) => [...prev, tapTime]);
     const id = ++rippleId.current;
     setRipples((prev) => [...prev.slice(-6), { id, x, y }]);
     window.setTimeout(() => {
       setRipples((prev) => prev.filter((r) => r.id !== id));
     }, 700);
+    return { tapTime, rippleId: id };
+  }, []);
+
+  // A tap is counted on pointerdown (for timing accuracy) but withdrawn if the
+  // finger then travels — so pulls, swipes and edge gestures don't count as beats.
+  const SWIPE_CANCEL_PX = 12;
+
+  const cancelActiveTap = useCallback(() => {
+    const active = activeTapRef.current;
+    if (!active) return;
+    activeTapRef.current = null;
+    setTaps((prev) => prev.filter((t) => t !== active.tapTime));
+    setRipples((prev) => prev.filter((r) => r.id !== active.rippleId));
   }, []);
 
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as Element;
     if (target.closest('button, input, textarea, a, [data-no-tap]')) return;
-    registerTap(e.clientX, e.clientY);
+    const { tapTime, rippleId: rid } = registerTap(e.clientX, e.clientY);
+    activeTapRef.current = { pointerId: e.pointerId, tapTime, rippleId: rid, x: e.clientX, y: e.clientY };
+  };
+
+  const handlePointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    const active = activeTapRef.current;
+    if (!active || e.pointerId !== active.pointerId) return;
+    if (Math.hypot(e.clientX - active.x, e.clientY - active.y) > SWIPE_CANCEL_PX) cancelActiveTap();
+  };
+
+  const handlePointerUp = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activeTapRef.current?.pointerId === e.pointerId) activeTapRef.current = null;
+  };
+
+  // pointercancel = the browser claimed the gesture (pull-to-refresh, back swipe…)
+  const handlePointerCancel = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (activeTapRef.current?.pointerId === e.pointerId) cancelActiveTap();
   };
 
   useEffect(() => {
@@ -110,10 +147,16 @@ const App = () => {
   const bpmColor = bpm !== null ? accuracyColor(bpm, targetBpm) : 'var(--fg)';
 
   return (
-    <div className="app" onPointerDown={handlePointerDown}>
+    <div
+      className="app"
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerCancel={handlePointerCancel}
+    >
       <header className="topbar" data-no-tap>
         <h1 className="logo">
-          <MetronomeMark />
+          <MetronomeMark size={30} />
           TempoTuner
         </h1>
         <span className="topbar-buttons">
@@ -163,6 +206,16 @@ const App = () => {
       </main>
 
       <section className="graph-area">
+        <button
+          className="icon-btn graph-reset"
+          data-no-tap
+          onClick={reset}
+          disabled={!hasSession && !recorder.hasRecording}
+          aria-label="Reset session"
+          title="Clear taps and recording"
+        >
+          ↻
+        </button>
         {recorder.hasRecording && (
           <span className="graph-hint squiggle" data-no-tap>
             tap the graph to hear that part ↓
@@ -170,16 +223,20 @@ const App = () => {
         )}
         {points.length === 0 && recorder.volume.length === 0 ? (
           <div className="graph-empty squiggle">
-            <svg className="arrow" viewBox="0 0 60 40" aria-hidden="true">
+            <div>
+              was I rushing? dragging? steady?
+              <br />
+              your tempo graph shows up here
+            </div>
+            <svg className="arrow" viewBox="0 0 40 60" aria-hidden="true">
               <path
-                d="M50 5 C 30 2, 12 12, 10 30 M10 30 l -4 -9 M10 30 l 9 -3"
+                d="M8 8 C 28 12, 34 28, 26 50 M26 50 l -2 -10 M26 50 l 10 -5"
                 fill="none"
                 stroke="currentColor"
                 strokeWidth="2"
                 strokeLinecap="round"
               />
             </svg>
-            your tempo graph shows up here — was I rushing? dragging? steady?
           </div>
         ) : (
           <Graph
@@ -197,10 +254,7 @@ const App = () => {
                 avg <strong>{stats.avg}</strong>
               </span>
               <span>
-                steady <strong>{stats.stability}%</strong>
-              </span>
-              <span>
-                trend <strong>{driftLabel(stats.drift)}</strong>
+                score <strong>{stats.score}</strong>/100
               </span>
               <span>
                 beats <strong>{stats.count + 1}</strong>
@@ -239,12 +293,10 @@ const App = () => {
             {recorder.status === 'playing' ? 'stop' : 'play'}
           </button>
         )}
-        <button className="btn" onClick={reset} disabled={!hasSession && !recorder.hasRecording}>
-          <span className="btn-icon">↻</span>
-          reset
-        </button>
         <button className="btn" onClick={() => setShareOpen(true)} disabled={!stats}>
-          <span className="btn-icon">⇱</span>
+          <span className="btn-icon">
+            <ShareNodes />
+          </span>
           share
         </button>
       </nav>
