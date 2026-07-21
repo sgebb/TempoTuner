@@ -87,6 +87,9 @@ const App = () => {
   const handlePointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const target = e.target as Element;
     if (target.closest('button, input, textarea, a, [data-no-tap]')) return;
+    // While a recording plays you're reviewing, not practicing — taps on the
+    // graph seek (handled there), taps elsewhere shouldn't count as beats.
+    if (recorder.status === 'playing') return;
     const { tapTime, rippleId: rid } = registerTap(e.clientX, e.clientY);
     activeTapRef.current = { pointerId: e.pointerId, tapTime, rippleId: rid, x: e.clientX, y: e.clientY };
   };
@@ -216,11 +219,6 @@ const App = () => {
         >
           ↻
         </button>
-        {recorder.hasRecording && (
-          <span className="graph-hint squiggle" data-no-tap>
-            tap the graph to hear that part ↓
-          </span>
-        )}
         {points.length === 0 && recorder.volume.length === 0 ? (
           <div className="graph-empty squiggle">
             <div>
@@ -244,7 +242,7 @@ const App = () => {
             targetBpm={targetBpm}
             volume={recorder.volume}
             playbackTime={recorder.playbackTime}
-            onSeek={recorder.hasRecording ? recorder.seek : null}
+            onSeek={recorder.status === 'playing' ? recorder.seek : null}
           />
         )}
         <div className="stats-row">

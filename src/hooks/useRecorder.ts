@@ -52,8 +52,23 @@ export function useRecorder() {
   };
 
   const startRecording = useCallback(async () => {
+    let stream: MediaStream;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Speech-call processing (echo cancellation etc.) audibly degrades
+      // singing and instruments — record the raw signal instead.
+      stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        },
+      });
+    } catch {
+      setStatus('denied');
+      return;
+    }
+    try {
+      stopMeter();
       cleanupAudio();
       chunksRef.current = [];
       setVolume([]);
@@ -82,7 +97,12 @@ export function useRecorder() {
         meterRef.current = { ctx, timer };
       }
 
-      const recorder = new MediaRecorder(stream);
+      let recorder: MediaRecorder;
+      try {
+        recorder = new MediaRecorder(stream, { audioBitsPerSecond: 128000 });
+      } catch {
+        recorder = new MediaRecorder(stream);
+      }
       recorder.ondataavailable = (e) => {
         if (e.data.size > 0) chunksRef.current.push(e.data);
       };
@@ -99,11 +119,16 @@ export function useRecorder() {
       recorder.start();
       setStatus('recording');
     } catch {
+      stopMeter();
+      stream.getTracks().forEach((t) => t.stop());
       setStatus('denied');
     }
   }, []);
 
   const stopRecording = useCallback(() => {
+    // Kill the meter right away — MediaRecorder's onstop is async (and can be
+    // slow on mobile), and every extra sample extends the graph's time axis.
+    stopMeter();
     if (recorderRef.current && recorderRef.current.state !== 'inactive') {
       recorderRef.current.stop();
     }

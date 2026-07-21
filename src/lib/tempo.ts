@@ -54,8 +54,18 @@ export function computeStats(points: TapPoint[], targetBpm: number | null = null
   const bpms = points.map((p) => p.bpm);
   const avg = bpms.reduce((s, b) => s + b, 0) / bpms.length;
 
-  const variance = bpms.reduce((s, b) => s + (b - avg) ** 2, 0) / bpms.length;
-  const cv = Math.sqrt(variance) / avg;
+  // Judge steadiness with the worst ~10% of beats excluded, so one stumbled
+  // tap doesn't tank the score.
+  const sorted = [...bpms].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  const trimCount = bpms.length >= 6 ? Math.max(1, Math.floor(bpms.length * 0.1)) : 0;
+  const kept = [...bpms]
+    .sort((a, b) => Math.abs(a - median) - Math.abs(b - median))
+    .slice(0, bpms.length - trimCount);
+  const keptAvg = kept.reduce((s, b) => s + b, 0) / kept.length;
+  const variance = kept.reduce((s, b) => s + (b - keptAvg) ** 2, 0) / kept.length;
+  const cv = Math.sqrt(variance) / keptAvg;
   const stability = Math.max(0, Math.min(100, Math.round(100 - cv * 400)));
 
   const half = Math.floor(bpms.length / 2);
@@ -64,7 +74,7 @@ export function computeStats(points: TapPoint[], targetBpm: number | null = null
   const drift = Math.round(secondAvg - firstAvg);
 
   const driftPenalty = Math.min(30, Math.max(0, (Math.abs(drift) - 2) * 1.5));
-  const targetPenalty = targetBpm !== null ? Math.min(25, Math.abs(avg - targetBpm) * 1.2) : 0;
+  const targetPenalty = targetBpm !== null ? Math.min(25, Math.abs(keptAvg - targetBpm) * 1.2) : 0;
   const score = Math.max(0, Math.min(100, Math.round(stability - driftPenalty - targetPenalty)));
 
   const comment = buildComment(points, avg, targetBpm, score);

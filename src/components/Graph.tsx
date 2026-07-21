@@ -7,7 +7,7 @@ type Props = {
   targetBpm: number | null;
   volume: VolumeSample[];
   playbackTime: number | null;
-  /** when set, tapping the graph seeks the recording instead of counting a beat */
+  /** set only while playing back — tapping the graph then seeks instead of counting a beat */
   onSeek?: ((absMs: number) => void) | null;
 };
 
@@ -76,7 +76,7 @@ const Graph = ({ points, targetBpm, volume, playbackTime, onSeek }: Props) => {
   const y = (bpm: number) => padT + ((maxY - bpm) / (maxY - minY)) * (h - padT - padB);
   const hasData = points.length > 0 || volume.length > 0;
 
-  const handleSeek = (e: React.PointerEvent<HTMLDivElement>) => {
+  const handleSeek = (e: React.PointerEvent<Element>) => {
     if (!onSeek) return;
     e.stopPropagation();
     const rect = wrapRef.current!.getBoundingClientRect();
@@ -123,14 +123,18 @@ const Graph = ({ points, targetBpm, volume, playbackTime, onSeek }: Props) => {
       )
       .join(' ');
 
-    // Volume envelope along the bottom, so it's clear when singing happened.
+    // The volume envelope lives in the bottom quarter of the plot; the hint
+    // text sits just above it while playing.
+    const bandH = (h - padT - padB) * 0.25;
+    const bandTop = h - padB - bandH;
+
+    // Volume envelope inside the band, so it's clear when singing happened.
     let volPath: string | null = null;
     if (volume.length > 1) {
       const baseY = h - padB;
-      const volH = (h - padT - padB) * 0.24;
       const maxLevel = Math.max(0.06, ...volume.map((s) => s.level));
       const line = volume
-        .map((s) => `L ${x(s.t).toFixed(1)} ${(baseY - (s.level / maxLevel) * volH).toFixed(1)}`)
+        .map((s) => `L ${x(s.t).toFixed(1)} ${(baseY - (s.level / maxLevel) * (bandH - 2)).toFixed(1)}`)
         .join(' ');
       volPath = `M ${x(volume[0].t).toFixed(1)} ${baseY} ${line} L ${x(
         volume[volume.length - 1].t
@@ -158,7 +162,12 @@ const Graph = ({ points, targetBpm, volume, playbackTime, onSeek }: Props) => {
             </text>
           </g>
         ))}
-        {volPath && <path d={volPath} fill="var(--muted)" opacity={0.2} stroke="none" />}
+        {onSeek && (
+          <text x={w - padR - 6} y={bandTop - 6} textAnchor="end" className="graph-hint-label">
+            tap the graph to jump to that part
+          </text>
+        )}
+        {volPath && <path d={volPath} fill="var(--accent)" opacity={0.35} stroke="none" />}
         {targetBpm !== null && (
           <>
             <line

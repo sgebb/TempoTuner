@@ -62,7 +62,9 @@ body {
   gap: 4px;
   max-width: 640px;
   margin: 0 auto;
-  touch-action: manipulation;
+  /* `none` (not `manipulation`): the browser must never claim a drag gesture,
+     otherwise pointermove stops firing and a pull would count as a tap */
+  touch-action: none;
   user-select: none;
   -webkit-user-select: none;
   cursor: pointer;
@@ -203,9 +205,9 @@ body {
   position: absolute;
   top: 8px;
   right: 8px;
-  width: 32px;
-  height: 32px;
-  font-size: 15px;
+  width: 42px;
+  height: 42px;
+  font-size: 19px;
   z-index: 3;
 }
 
@@ -214,15 +216,11 @@ body {
   cursor: default;
 }
 
-.graph-hint {
-  position: absolute;
-  top: 12px;
-  right: 48px;
-  font-size: 15px;
-  color: var(--accent);
-  transform: rotate(-2deg);
-  z-index: 2;
-  pointer-events: none;
+.graph-hint-label {
+  font-family: 'Caveat', 'Segoe Script', cursive;
+  font-size: 16px;
+  font-weight: 500;
+  fill: var(--accent);
 }
 
 .graph-seekable {
@@ -407,6 +405,7 @@ body {
   max-width: 560px;
   max-height: 85dvh;
   overflow-y: auto;
+  touch-action: auto;
   background: var(--bg);
   border-radius: 22px 22px 0 0;
   border: 1.5px solid var(--border);
