@@ -188,6 +188,63 @@ body {
   opacity: 1;
 }
 
+.chip-row {
+  margin-top: 8px;
+  display: flex;
+  gap: 8px;
+  justify-content: center;
+  flex-wrap: wrap;
+}
+
+.chip-row .target-chip {
+  margin-top: 0;
+}
+
+.daily-chip {
+  border-style: solid;
+}
+
+.daily-chip-score {
+  color: var(--accent);
+}
+
+.pulse-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent);
+  animation: pulse-dot 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse-dot {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.5);
+    opacity: 0.55;
+  }
+}
+
+/* ---------- daily challenge run ---------- */
+.challenge-progress {
+  color: var(--accent);
+}
+
+.challenge-total {
+  font-size: 0.38em;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+/* the song name is the whole challenge — it survives the short-screen tagline hide */
+.tagline.challenge-song {
+  display: block;
+  color: var(--fg);
+}
+
 /* ---------- graph ---------- */
 .graph-area {
   flex: 1 1 auto;
@@ -451,6 +508,7 @@ body {
   display: flex;
   gap: 10px;
   justify-content: flex-end;
+  flex-wrap: wrap;
 }
 
 .btn-primary {
@@ -550,6 +608,136 @@ body {
 .share-message:focus {
   outline: 2px solid var(--accent);
   border-color: transparent;
+}
+
+/* daily sheet */
+.daily-song {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
+.daily-song strong {
+  font-size: 24px;
+  font-weight: 800;
+}
+
+.daily-artist {
+  color: var(--muted);
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.reveal-row {
+  display: flex;
+  justify-content: center;
+  gap: 44px;
+}
+
+.reveal-cell {
+  text-align: center;
+}
+
+.reveal-num {
+  font-size: 54px;
+  font-weight: 800;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.reveal-cap {
+  margin-top: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.reveal-actual {
+  animation: fade-in 0.4s ease-out 0.9s backwards;
+}
+
+.reveal-actual .reveal-num {
+  color: var(--accent);
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.reveal-score {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  font-size: 17px;
+  font-weight: 700;
+}
+
+.reveal-score strong {
+  font-size: 22px;
+}
+
+.octave-note {
+  font-family: 'Caveat', 'Segoe Script', cursive;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--accent);
+}
+
+.daily-streak-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  font-size: 14px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.history-dots {
+  display: flex;
+  gap: 7px;
+}
+
+.history-dot {
+  width: 13px;
+  height: 13px;
+  border-radius: 50%;
+  border: 1.5px solid var(--border);
+}
+
+.dot-empty {
+  background: transparent;
+}
+
+.dot-skip {
+  background: var(--muted);
+  opacity: 0.45;
+}
+
+.dot-good {
+  background: var(--good);
+  border-color: var(--good);
+}
+
+.dot-warn {
+  background: var(--warn);
+  border-color: var(--warn);
+}
+
+.dot-bad {
+  background: var(--bad);
+  border-color: var(--bad);
 }
 
 /* help sheet */

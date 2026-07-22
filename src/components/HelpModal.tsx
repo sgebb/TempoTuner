@@ -39,6 +39,11 @@ const HelpModal = ({ open, onClose }: Props) => (
           note, and <strong>reset</strong> clears taps and recording but keeps your target.
         </p>
         <p>
+          <strong>Daily challenge</strong> — every day there's one well-known song. Sing it in your
+          head, tap its beat from memory, and see how close you got to the real BPM. Build a streak
+          and share your score — it's ear training disguised as a game.
+        </p>
+        <p>
           <strong>Install it</strong> — TempoTuner works as an app on your phone: open your
           browser menu and choose <em>Add to Home Screen</em> (or <em>Install</em>). It launches
           full-screen from its own icon and works offline.

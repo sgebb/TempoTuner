@@ -4,9 +4,22 @@ import { Bullseye, MetronomeMark, ShareNodes } from './components/icons';
 import HelpModal from './components/HelpModal';
 import TargetSheet from './components/TargetSheet';
 import ShareSheet from './components/ShareSheet';
+import DailySheet, { RunReveal } from './components/DailySheet';
 import { useMetronome } from './hooks/useMetronome';
 import { useRecorder } from './hooks/useRecorder';
 import { accuracyColor, computeStats, currentBpm, tapsToPoints } from './lib/tempo';
+import {
+  CHALLENGE_POINTS,
+  DailyResults,
+  Song,
+  dailyNumber,
+  guessFromPoints,
+  loadDailyResults,
+  localDateKey,
+  saveDailyResults,
+  scoreGuess,
+  songForDay,
+} from './lib/daily';
 
 type Ripple = { id: number; x: number; y: number };
 
@@ -31,6 +44,15 @@ const App = () => {
   const [helpOpen, setHelpOpen] = useState(false);
   const [targetOpen, setTargetOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
+  // The daily challenge greets you (Wordle-style) until played — but only once
+  // per day, so dismissing it leaves just the pulsing chip as a nudge.
+  const [dailyOpen, setDailyOpen] = useState(() => {
+    const key = localDateKey();
+    return !loadDailyResults()[key] && localStorage.getItem('tt-daily-prompted') !== key;
+  });
+  const [dailyResults, setDailyResults] = useState<DailyResults>(loadDailyResults);
+  const [challenge, setChallenge] = useState<{ song: Song; practice: boolean } | null>(null);
+  const [runReveal, setRunReveal] = useState<RunReveal | null>(null);
   const rippleId = useRef(0);
   const metronomePendingRef = useRef(false);
   const activeTapRef = useRef<{
@@ -47,6 +69,11 @@ const App = () => {
   const points = useMemo(() => tapsToPoints(taps), [taps]);
   const bpm = useMemo(() => currentBpm(points), [points]);
   const stats = useMemo(() => computeStats(points, targetBpm), [points, targetBpm]);
+
+  const todayKey = localDateKey();
+  const day = dailyNumber(todayKey);
+  const dailySong = songForDay(day);
+  const todayResult = dailyResults[todayKey];
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
@@ -127,6 +154,46 @@ const App = () => {
     metronome.stop();
   };
 
+  const dismissDaily = () => {
+    localStorage.setItem('tt-daily-prompted', todayKey);
+    setDailyOpen(false);
+  };
+
+  const startChallenge = (song: Song, practice: boolean) => {
+    reset();
+    setRunReveal(null);
+    setChallenge({ song, practice });
+    dismissDaily();
+  };
+
+  const cancelChallenge = () => {
+    setChallenge(null);
+    setTaps([]);
+  };
+
+  const skipDaily = () => {
+    if (dailyResults[todayKey]) return;
+    const next = { ...dailyResults, [todayKey]: { day, guess: null, score: null, skipped: true } };
+    setDailyResults(next);
+    saveDailyResults(next);
+  };
+
+  // A challenge run ends itself after enough valid intervals.
+  useEffect(() => {
+    if (!challenge || points.length < CHALLENGE_POINTS) return;
+    const guess = guessFromPoints(points);
+    const { score, octave } = scoreGuess(guess, challenge.song.bpm);
+    const countsForToday = !challenge.practice && !dailyResults[todayKey];
+    if (countsForToday) {
+      const next = { ...dailyResults, [todayKey]: { day, guess, score } };
+      setDailyResults(next);
+      saveDailyResults(next);
+    }
+    setRunReveal({ song: challenge.song, guess, score, octave, practice: !countsForToday });
+    setChallenge(null);
+    setDailyOpen(true);
+  }, [challenge, points, dailyResults, todayKey, day]);
+
   const toggleMetronome = () => {
     if (metronome.isOn) metronome.stop();
     else if (targetBpm === null) {
@@ -176,39 +243,82 @@ const App = () => {
         </span>
       </header>
 
-      <p className="squiggle tagline">sing something &amp; tap anywhere to the beat!</p>
+      {challenge ? (
+        <p className="squiggle tagline challenge-song">
+          🎵 {challenge.song.title} — {challenge.song.artist}
+        </p>
+      ) : (
+        <p className="squiggle tagline">sing something &amp; tap anywhere to the beat!</p>
+      )}
 
       <main className="bpm-zone">
-        <div className={`bpm-big ${bpm !== null ? '' : 'bpm-empty'}`} style={{ color: bpmColor }} key={taps.length}>
-          {bpm ?? '· ·'}
-        </div>
-        <div className="bpm-label">BPM</div>
-        <button className="target-chip" data-no-tap onClick={() => setTargetOpen(true)}>
-          {targetBpm !== null ? (
-            <>
-              <Bullseye /> target {targetBpm}
-              <span
-                className="chip-x"
-                role="button"
-                aria-label="Remove target"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setTargetBpm(null);
-                  metronome.stop();
-                }}
-              >
-                ✕
-              </span>
-            </>
-          ) : (
-            <>
-              <Bullseye /> set a target
-            </>
-          )}
-        </button>
+        {challenge ? (
+          <>
+            <div className="bpm-big challenge-progress" key={points.length}>
+              {Math.min(points.length, CHALLENGE_POINTS)}
+              <span className="challenge-total">/{CHALLENGE_POINTS}</span>
+            </div>
+            <div className="bpm-label">taps</div>
+            <button className="target-chip" data-no-tap onClick={cancelChallenge}>
+              ✕ stop challenge
+            </button>
+          </>
+        ) : (
+          <>
+            <div className={`bpm-big ${bpm !== null ? '' : 'bpm-empty'}`} style={{ color: bpmColor }} key={taps.length}>
+              {bpm ?? '· ·'}
+            </div>
+            <div className="bpm-label">BPM</div>
+            <div className="chip-row" data-no-tap>
+              <button className="target-chip" onClick={() => setTargetOpen(true)}>
+                {targetBpm !== null ? (
+                  <>
+                    <Bullseye /> target {targetBpm}
+                    <span
+                      className="chip-x"
+                      role="button"
+                      aria-label="Remove target"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setTargetBpm(null);
+                        metronome.stop();
+                      }}
+                    >
+                      ✕
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <Bullseye /> set a target
+                  </>
+                )}
+              </button>
+              <button className="target-chip daily-chip" onClick={() => setDailyOpen(true)}>
+                🎵 daily #{day}
+                {todayResult ? (
+                  <span className="daily-chip-score">
+                    {todayResult.skipped ? 'skipped' : `${todayResult.score}/100`}
+                  </span>
+                ) : (
+                  <span className="pulse-dot" aria-hidden="true" />
+                )}
+              </button>
+            </div>
+          </>
+        )}
       </main>
 
       <section className="graph-area">
+        {challenge ? (
+          <div className="graph-empty squiggle">
+            <div>
+              eyes off the screen — trust your inner clock!
+              <br />
+              numbers show up when you're done
+            </div>
+          </div>
+        ) : (
+          <>
         <button
           className="icon-btn graph-reset"
           data-no-tap
@@ -262,8 +372,11 @@ const App = () => {
             <span className="stats-placeholder">{hasSession ? 'keep tapping…' : 'stats appear after a few taps'}</span>
           )}
         </div>
+          </>
+        )}
       </section>
 
+      {!challenge && (
       <nav className="controls" data-no-tap>
         <button
           className={`btn ${metronome.isOn ? 'btn-active' : ''}`}
@@ -298,6 +411,7 @@ const App = () => {
           share
         </button>
       </nav>
+      )}
 
       {recorder.status === 'denied' && (
         <div className="toast" data-no-tap>
@@ -310,6 +424,26 @@ const App = () => {
       ))}
 
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
+      {dailyOpen && (
+        <DailySheet
+          todayKey={todayKey}
+          day={day}
+          song={dailySong}
+          results={dailyResults}
+          reveal={runReveal}
+          onStart={startChallenge}
+          onSkip={skipDaily}
+          onPracticeAt={(v) => {
+            setTargetBpm(v);
+            dismissDaily();
+            setRunReveal(null);
+          }}
+          onClose={() => {
+            dismissDaily();
+            setRunReveal(null);
+          }}
+        />
+      )}
       {targetOpen && (
         <TargetSheet
           targetBpm={targetBpm}
