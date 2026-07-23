@@ -245,6 +245,12 @@ body {
   color: var(--fg);
 }
 
+/* ---------- demo ---------- */
+.demo-lyric {
+  font-size: clamp(48px, 16vmin, 96px);
+  color: var(--accent);
+}
+
 /* ---------- graph ---------- */
 .graph-area {
   flex: 1 1 auto;
@@ -773,6 +779,62 @@ body {
   border-radius: 999px;
   z-index: 60;
   white-space: nowrap;
+}
+
+/* ---------- cookie consent pill ---------- */
+.consent {
+  position: fixed;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: calc(env(safe-area-inset-bottom, 0px) + 78px);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: var(--bg-soft);
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  padding: 5px 6px 5px 14px;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+  white-space: nowrap;
+  z-index: 90;
+  box-shadow: 0 4px 18px rgba(10, 8, 18, 0.14);
+  cursor: default;
+  animation: slide-up 0.25s ease-out;
+}
+
+.consent-btn {
+  border-radius: 999px;
+  border: 1.5px solid var(--border);
+  background: var(--card);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12.5px;
+  font-weight: 700;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+
+.consent-btn:active {
+  transform: scale(0.94);
+}
+
+.consent-yes {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #241a05;
+}
+
+.linklike {
+  border: none;
+  background: none;
+  padding: 0;
+  font: inherit;
+  font-weight: 700;
+  color: var(--accent);
+  text-decoration: underline;
+  cursor: pointer;
 }
 
 /* short screens: shrink the flourishes first */

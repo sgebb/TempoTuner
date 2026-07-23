@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react';
 import {
   DailyResults,
   Octave,
-  PRACTICE_SONG,
   Song,
   computeStreak,
   scoreGuess,
@@ -25,6 +24,7 @@ type Props = {
   /** a just-finished run to reveal; null → show today's stored result or the intro */
   reveal: RunReveal | null;
   onStart: (song: Song, practice: boolean) => void;
+  onDemo: () => void;
   onSkip: () => void;
   onPracticeAt: (bpm: number) => void;
   onClose: () => void;
@@ -66,7 +66,7 @@ const HistoryDots = ({ results, todayKey }: { results: DailyResults; todayKey: s
   </div>
 );
 
-const DailySheet = ({ todayKey, day, song, results, reveal, onStart, onSkip, onPracticeAt, onClose }: Props) => {
+const DailySheet = ({ todayKey, day, song, results, reveal, onStart, onDemo, onSkip, onPracticeAt, onClose }: Props) => {
   const [copied, setCopied] = useState(false);
   const stored = results[todayKey];
   const streak = computeStreak(results, todayKey);
@@ -168,15 +168,16 @@ const DailySheet = ({ todayKey, day, song, results, reveal, onStart, onSkip, onP
         ) : (
           <>
             <p className="sheet-hint">
-              Sing it in your head and tap the beat — 16 taps, no live numbers. Your first run is
-              your score of record, so warm up first if you like.
+              Sing it in your head and tap the <strong>main beat</strong> — the steady pulse you'd
+              clap along to, not every word — 16 taps, no live numbers. Your first run is your
+              score of record. Unsure what to tap? Watch the demo first.
             </p>
             <div className="sheet-actions">
               <button className="btn btn-ghost" onClick={onSkip}>
                 Don't know it? Skip
               </button>
-              <button className="btn btn-ghost" onClick={() => onStart(PRACTICE_SONG, true)}>
-                Practice first
+              <button className="btn btn-ghost" onClick={onDemo}>
+                ▶ Show me how
               </button>
               <button className="btn btn-primary" onClick={() => onStart(song, false)}>
                 Start

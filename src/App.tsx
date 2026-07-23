@@ -5,8 +5,10 @@ import HelpModal from './components/HelpModal';
 import TargetSheet from './components/TargetSheet';
 import ShareSheet from './components/ShareSheet';
 import DailySheet, { RunReveal } from './components/DailySheet';
+import ConsentBanner from './components/ConsentBanner';
 import { useMetronome } from './hooks/useMetronome';
 import { useRecorder } from './hooks/useRecorder';
+import { DEMO_BEATS, DEMO_SONG, useDemo } from './hooks/useDemo';
 import { accuracyColor, computeStats, currentBpm, tapsToPoints } from './lib/tempo';
 import {
   CHALLENGE_POINTS,
@@ -65,6 +67,7 @@ const App = () => {
 
   const metronome = useMetronome();
   const recorder = useRecorder();
+  const demo = useDemo();
 
   const points = useMemo(() => tapsToPoints(taps), [taps]);
   const bpm = useMemo(() => currentBpm(points), [points]);
@@ -88,16 +91,29 @@ const App = () => {
     else localStorage.setItem('tt-target', String(targetBpm));
   }, [targetBpm]);
 
-  const registerTap = useCallback((x: number, y: number) => {
-    const tapTime = performance.now();
-    setTaps((prev) => [...prev, tapTime]);
+  const spawnRipple = useCallback((x: number, y: number) => {
     const id = ++rippleId.current;
     setRipples((prev) => [...prev.slice(-6), { id, x, y }]);
     window.setTimeout(() => {
       setRipples((prev) => prev.filter((r) => r.id !== id));
     }, 700);
-    return { tapTime, rippleId: id };
+    return id;
   }, []);
+
+  const registerTap = useCallback(
+    (x: number, y: number) => {
+      const tapTime = performance.now();
+      setTaps((prev) => [...prev, tapTime]);
+      return { tapTime, rippleId: spawnRipple(x, y) };
+    },
+    [spawnRipple]
+  );
+
+  // Demo: a ripple on every beat shows exactly where the taps should land.
+  useEffect(() => {
+    if (!demo.running || demo.beat < 0) return;
+    spawnRipple(window.innerWidth / 2, window.innerHeight * 0.35);
+  }, [demo.running, demo.beat, spawnRipple]);
 
   // A tap is counted on pointerdown (for timing accuracy) but withdrawn if the
   // finger then travels — so pulls, swipes and edge gestures don't count as beats.
@@ -116,7 +132,8 @@ const App = () => {
     if (target.closest('button, input, textarea, a, [data-no-tap]')) return;
     // While a recording plays you're reviewing, not practicing — taps on the
     // graph seek (handled there), taps elsewhere shouldn't count as beats.
-    if (recorder.status === 'playing') return;
+    // During the demo you're watching, not tapping.
+    if (recorder.status === 'playing' || demo.running) return;
     const { tapTime, rippleId: rid } = registerTap(e.clientX, e.clientY);
     activeTapRef.current = { pointerId: e.pointerId, tapTime, rippleId: rid, x: e.clientX, y: e.clientY };
   };
@@ -139,6 +156,7 @@ const App = () => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== 'Space') return;
+      if (demo.running) return;
       const target = e.target as Element;
       if (target.closest('button, input, textarea, [data-no-tap]')) return;
       e.preventDefault();
@@ -146,12 +164,13 @@ const App = () => {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [registerTap]);
+  }, [registerTap, demo.running]);
 
   const reset = () => {
     setTaps([]);
     recorder.clear();
     metronome.stop();
+    demo.stop();
   };
 
   const dismissDaily = () => {
@@ -169,6 +188,19 @@ const App = () => {
   const cancelChallenge = () => {
     setChallenge(null);
     setTaps([]);
+  };
+
+  // The demo returns you to the daily sheet when it ends (or is stopped).
+  const startDemo = () => {
+    reset();
+    setRunReveal(null);
+    dismissDaily();
+    demo.start(() => setDailyOpen(true));
+  };
+
+  const stopDemo = () => {
+    demo.stop();
+    setDailyOpen(true);
   };
 
   const skipDaily = () => {
@@ -247,6 +279,8 @@ const App = () => {
         <p className="squiggle tagline challenge-song">
           🎵 {challenge.song.title} — {challenge.song.artist}
         </p>
+      ) : demo.running ? (
+        <p className="squiggle tagline challenge-song">🎵 {DEMO_SONG.title} — demo</p>
       ) : (
         <p className="squiggle tagline">sing something &amp; tap anywhere to the beat!</p>
       )}
@@ -261,6 +295,18 @@ const App = () => {
             <div className="bpm-label">taps</div>
             <button className="target-chip" data-no-tap onClick={cancelChallenge}>
               ✕ stop challenge
+            </button>
+          </>
+        ) : demo.running ? (
+          <>
+            <div className="bpm-big demo-lyric" key={demo.beat}>
+              {demo.beat >= 0 ? DEMO_BEATS[demo.beat].lyric : '🎵'}
+            </div>
+            <div className="bpm-label">
+              {demo.beat >= 0 ? `tap ${demo.beat + 1} / ${DEMO_BEATS.length}` : 'listen…'}
+            </div>
+            <button className="target-chip" data-no-tap onClick={stopDemo}>
+              ✕ stop demo
             </button>
           </>
         ) : (
@@ -315,6 +361,14 @@ const App = () => {
               eyes off the screen — trust your inner clock!
               <br />
               numbers show up when you're done
+            </div>
+          </div>
+        ) : demo.running ? (
+          <div className="graph-empty squiggle">
+            <div>
+              every pulse = one tap — the steady beat, not every word!
+              <br />
+              hear how “star” holds on while the beat keeps ticking
             </div>
           </div>
         ) : (
@@ -376,7 +430,7 @@ const App = () => {
         )}
       </section>
 
-      {!challenge && (
+      {!challenge && !demo.running && (
       <nav className="controls" data-no-tap>
         <button
           className={`btn ${metronome.isOn ? 'btn-active' : ''}`}
@@ -423,6 +477,7 @@ const App = () => {
         <span key={r.id} className="ripple" style={{ left: r.x, top: r.y }} aria-hidden="true" />
       ))}
 
+      <ConsentBanner />
       <HelpModal open={helpOpen} onClose={() => setHelpOpen(false)} />
       {dailyOpen && (
         <DailySheet
@@ -432,6 +487,7 @@ const App = () => {
           results={dailyResults}
           reveal={runReveal}
           onStart={startChallenge}
+          onDemo={startDemo}
           onSkip={skipDaily}
           onPracticeAt={(v) => {
             setTargetBpm(v);

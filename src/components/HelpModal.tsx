@@ -1,4 +1,11 @@
+import { clearConsent } from '../lib/analytics';
+
 type Props = { open: boolean; onClose: () => void };
+
+const changeCookieChoice = () => {
+  clearConsent();
+  window.location.reload();
+};
 
 /**
  * Kept mounted (hidden) even when closed so the descriptive text is always in
@@ -40,7 +47,9 @@ const HelpModal = ({ open, onClose }: Props) => (
         </p>
         <p>
           <strong>Daily challenge</strong> — every day there's one well-known song. Sing it in your
-          head, tap its beat from memory, and see how close you got to the real BPM. Build a streak
+          head and tap its <em>main beat</em> from memory — the steady pulse you'd clap along to,
+          not every word — and see how close you got to the real BPM. Unsure what to tap? The demo
+          plays Twinkle Twinkle Little Star and pulses exactly where the taps go. Build a streak
           and share your score — it's ear training disguised as a game.
         </p>
         <p>
@@ -54,6 +63,13 @@ const HelpModal = ({ open, onClose }: Props) => (
           without a backing track. TempoTuner is a free online tap-tempo trainer and rhythm
           consistency checker: a beat keeper that works in your browser, on any phone, with no
           install and no account. Everything stays on your device — nothing is uploaded.
+        </p>
+        <p>
+          <strong>Cookies</strong> — taps and recordings never leave your device. If you said yes
+          to the cookie question, we count visits anonymously with Google Analytics — nothing more.{' '}
+          <button className="linklike" onClick={changeCookieChoice}>
+            Change cookie choice
+          </button>
         </p>
       </div>
     </div>

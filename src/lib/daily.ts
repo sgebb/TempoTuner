@@ -108,8 +108,6 @@ export const SONGS: Song[] = [
   { title: 'Espresso', artist: 'Sabrina Carpenter', bpm: 104 },
 ];
 
-export const PRACTICE_SONG: Song = { title: 'Twinkle Twinkle Little Star', artist: 'traditional', bpm: 90 };
-
 /** Valid intervals needed to finish a challenge run. */
 export const CHALLENGE_POINTS = 16;
 
