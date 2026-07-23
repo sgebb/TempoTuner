@@ -171,12 +171,22 @@ export function scoreGuess(guess: number, target: number): { score: number; octa
 /**
  * Consistency penalty for a challenge run: the median guess can be spot-on
  * while the taps wobbled all over, so high interval variance costs points.
- * cv ≲ 4% (a tight human tapper) is free; it ramps up to −25 from there.
+ * A missed or fumbled tap is a stumble, not a wobbly sense of tempo — the
+ * worst ~10% of intervals are excluded first (like computeStats does), so
+ * only sustained unsteadiness is penalized. cv ≲ 4% on the rest is free;
+ * it ramps up to −25 from there.
  */
 export function wobblePenalty(bpms: number[]): number {
   if (bpms.length < 4) return 0;
-  const avg = bpms.reduce((s, b) => s + b, 0) / bpms.length;
-  const sd = Math.sqrt(bpms.reduce((s, b) => s + (b - avg) ** 2, 0) / bpms.length);
+  const sorted = [...bpms].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  const median = sorted.length % 2 ? sorted[mid] : (sorted[mid - 1] + sorted[mid]) / 2;
+  const trimCount = bpms.length >= 8 ? Math.max(1, Math.round(bpms.length * 0.1)) : 0;
+  const kept = [...bpms]
+    .sort((a, b) => Math.abs(a - median) - Math.abs(b - median))
+    .slice(0, bpms.length - trimCount);
+  const avg = kept.reduce((s, b) => s + b, 0) / kept.length;
+  const sd = Math.sqrt(kept.reduce((s, b) => s + (b - avg) ** 2, 0) / kept.length);
   const cv = sd / avg;
   return Math.max(0, Math.min(25, Math.round((cv - 0.04) * 250)));
 }
