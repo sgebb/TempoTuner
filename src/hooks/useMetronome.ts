@@ -1,12 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 
-/**
- * Metronome that counts you in at full volume, fades over the next beats and
- * is gone after TOTAL_BEATS clicks — regardless of tempo — so you continue on
- * your own and check yourself afterwards.
- */
-const FULL_BEATS = 4;
-const TOTAL_BEATS = 8;
+/** Plain metronome: clicks at the given tempo until stopped. */
 const LOOKAHEAD_S = 0.12;
 const SCHEDULER_MS = 30;
 
@@ -15,7 +9,6 @@ export function useMetronome() {
   const ctxRef = useRef<AudioContext | null>(null);
   const timerRef = useRef<number | null>(null);
   const nextBeatRef = useRef(0);
-  const beatCountRef = useRef(0);
 
   const stop = useCallback(() => {
     if (timerRef.current !== null) {
@@ -38,16 +31,15 @@ export function useMetronome() {
 
       const interval = 60 / bpm;
       nextBeatRef.current = ctx.currentTime + 0.05;
-      beatCountRef.current = 0;
       setIsOn(true);
 
-      const scheduleClick = (time: number, volume: number) => {
+      const scheduleClick = (time: number) => {
         const osc = ctx.createOscillator();
         const gain = ctx.createGain();
         osc.type = 'sine';
         osc.frequency.value = 1000;
         gain.gain.setValueAtTime(0.0001, time);
-        gain.gain.exponentialRampToValueAtTime(Math.max(0.001, 0.25 * volume), time + 0.004);
+        gain.gain.exponentialRampToValueAtTime(0.25, time + 0.004);
         gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
         osc.connect(gain);
         gain.connect(ctx.destination);
@@ -57,14 +49,7 @@ export function useMetronome() {
 
       timerRef.current = window.setInterval(() => {
         while (nextBeatRef.current < ctx.currentTime + LOOKAHEAD_S) {
-          const n = beatCountRef.current;
-          if (n >= TOTAL_BEATS) {
-            stop();
-            return;
-          }
-          const volume = n < FULL_BEATS ? 1 : (TOTAL_BEATS - n) / (TOTAL_BEATS - FULL_BEATS);
-          scheduleClick(nextBeatRef.current, volume);
-          beatCountRef.current = n + 1;
+          scheduleClick(nextBeatRef.current);
           nextBeatRef.current += interval;
         }
       }, SCHEDULER_MS);

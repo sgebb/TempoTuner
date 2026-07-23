@@ -1,9 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Graph from './components/Graph';
-import { Bullseye, MetronomeMark, ShareNodes } from './components/icons';
+import { Bullseye, MetronomeMark } from './components/icons';
 import HelpModal from './components/HelpModal';
 import TargetSheet from './components/TargetSheet';
-import ShareSheet from './components/ShareSheet';
 import DailySheet, { RunReveal } from './components/DailySheet';
 import ConsentBanner from './components/ConsentBanner';
 import { useMetronome } from './hooks/useMetronome';
@@ -21,6 +20,7 @@ import {
   saveDailyResults,
   scoreGuess,
   songForDay,
+  wobblePenalty,
 } from './lib/daily';
 
 type Ripple = { id: number; x: number; y: number };
@@ -45,7 +45,6 @@ const App = () => {
   const [ripples, setRipples] = useState<Ripple[]>([]);
   const [helpOpen, setHelpOpen] = useState(false);
   const [targetOpen, setTargetOpen] = useState(false);
-  const [shareOpen, setShareOpen] = useState(false);
   // The daily challenge greets you (Wordle-style) until played — but only once
   // per day, so dismissing it leaves just the pulsing chip as a nudge.
   const [dailyOpen, setDailyOpen] = useState(() => {
@@ -203,25 +202,22 @@ const App = () => {
     setDailyOpen(true);
   };
 
-  const skipDaily = () => {
-    if (dailyResults[todayKey]) return;
-    const next = { ...dailyResults, [todayKey]: { day, guess: null, score: null, skipped: true } };
-    setDailyResults(next);
-    saveDailyResults(next);
-  };
-
-  // A challenge run ends itself after enough valid intervals.
+  // A challenge run ends itself after enough valid intervals. The score is
+  // tempo accuracy (octave-aware) minus a consistency penalty for wobbly taps.
   useEffect(() => {
     if (!challenge || points.length < CHALLENGE_POINTS) return;
     const guess = guessFromPoints(points);
-    const { score, octave } = scoreGuess(guess, challenge.song.bpm);
+    const { score: accuracy, octave } = scoreGuess(guess, challenge.song.bpm);
+    const bpms = points.map((p) => Math.round(p.bpm));
+    const wobble = wobblePenalty(bpms);
+    const score = Math.max(0, accuracy - wobble);
     const countsForToday = !challenge.practice && !dailyResults[todayKey];
     if (countsForToday) {
-      const next = { ...dailyResults, [todayKey]: { day, guess, score } };
+      const next = { ...dailyResults, [todayKey]: { day, guess, score, bpms } };
       setDailyResults(next);
       saveDailyResults(next);
     }
-    setRunReveal({ song: challenge.song, guess, score, octave, practice: !countsForToday });
+    setRunReveal({ song: challenge.song, guess, score, octave, wobble, practice: !countsForToday });
     setChallenge(null);
     setDailyOpen(true);
   }, [challenge, points, dailyResults, todayKey, day]);
@@ -276,9 +272,10 @@ const App = () => {
       </header>
 
       {challenge ? (
-        <p className="squiggle tagline challenge-song">
-          🎵 {challenge.song.title} — {challenge.song.artist}
-        </p>
+        <div className="challenge-title">
+          <strong>🎵 {challenge.song.title}</strong>
+          <span>{challenge.song.artist}</span>
+        </div>
       ) : demo.running ? (
         <p className="squiggle tagline challenge-song">🎵 {DEMO_SONG.title} — demo</p>
       ) : (
@@ -373,16 +370,6 @@ const App = () => {
           </div>
         ) : (
           <>
-        <button
-          className="icon-btn graph-reset"
-          data-no-tap
-          onClick={reset}
-          disabled={!hasSession && !recorder.hasRecording}
-          aria-label="Reset session"
-          title="Clear taps and recording"
-        >
-          ↻
-        </button>
         {points.length === 0 && recorder.volume.length === 0 ? (
           <div className="graph-empty squiggle">
             <div>
@@ -431,6 +418,36 @@ const App = () => {
       </section>
 
       {!challenge && !demo.running && (
+      <>
+      <div className="controls-hint squiggle" data-no-tap aria-hidden="true">
+        {!hasSession && !metronome.isOn ? (
+          <span className="hint-inner hint-left">
+            <svg className="hint-arrow" viewBox="0 0 40 60">
+              <path
+                d="M32 8 C 12 12, 6 28, 14 50 M14 50 l 2 -10 M14 50 l -10 -5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+            start a metronome and try to hold its beat
+          </span>
+        ) : hasSession && !recorder.hasRecording && recorder.status === 'idle' ? (
+          <span className="hint-inner hint-center">
+            record yourself to hear where your tempo drifted
+            <svg className="hint-arrow" viewBox="0 0 40 60">
+              <path
+                d="M8 8 C 28 12, 34 28, 26 50 M26 50 l -2 -10 M26 50 l 10 -5"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </span>
+        ) : null}
+      </div>
       <nav className="controls" data-no-tap>
         <button
           className={`btn ${metronome.isOn ? 'btn-active' : ''}`}
@@ -438,11 +455,11 @@ const App = () => {
           title={
             targetBpm === null
               ? 'Pick a target tempo for the metronome'
-              : 'Metronome counts you in, then fades out'
+              : 'Metronome clicks at your target tempo'
           }
         >
           <span className="btn-icon">{metronome.isOn ? '◼' : '♪'}</span>
-          {metronome.isOn ? 'fading…' : 'metronome'}
+          {metronome.isOn ? 'stop' : 'metronome'}
         </button>
         <button
           className={`btn ${recorder.status === 'recording' ? 'btn-recording' : ''}`}
@@ -458,13 +475,17 @@ const App = () => {
             {recorder.status === 'playing' ? 'stop' : 'play'}
           </button>
         )}
-        <button className="btn" onClick={() => setShareOpen(true)} disabled={!stats}>
-          <span className="btn-icon">
-            <ShareNodes />
-          </span>
-          share
+        <button
+          className="btn"
+          onClick={reset}
+          disabled={!hasSession && !recorder.hasRecording}
+          title="Clear taps and recording"
+        >
+          <span className="btn-icon">↻</span>
+          reset
         </button>
       </nav>
+      </>
       )}
 
       {recorder.status === 'denied' && (
@@ -484,11 +505,11 @@ const App = () => {
           todayKey={todayKey}
           day={day}
           song={dailySong}
+          dark={dark}
           results={dailyResults}
           reveal={runReveal}
           onStart={startChallenge}
           onDemo={startDemo}
-          onSkip={skipDaily}
           onPracticeAt={(v) => {
             setTargetBpm(v);
             dismissDaily();
@@ -513,15 +534,6 @@ const App = () => {
             setTargetOpen(false);
             metronomePendingRef.current = false;
           }}
-        />
-      )}
-      {shareOpen && (
-        <ShareSheet
-          points={points}
-          stats={stats}
-          targetBpm={targetBpm}
-          dark={dark}
-          onClose={() => setShareOpen(false)}
         />
       )}
     </div>

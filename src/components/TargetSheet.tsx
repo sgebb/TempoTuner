@@ -55,7 +55,7 @@ const TargetSheet = ({ targetBpm, averageBpm, onSet, onClose }: Props) => {
           </div>
         )}
         <p className="sheet-hint">
-          The metronome plays this tempo, then fades out so you keep it going on your own.
+          Sets the dashed line on the graph, and the metronome clicks at this tempo.
         </p>
         <div className="sheet-actions">
           {targetBpm !== null && (

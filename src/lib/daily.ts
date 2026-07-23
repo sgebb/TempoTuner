@@ -168,6 +168,19 @@ export function scoreGuess(guess: number, target: number): { score: number; octa
   return { score: Math.max(0, Math.round(100 - bestErr * 400)), octave: best.octave };
 }
 
+/**
+ * Consistency penalty for a challenge run: the median guess can be spot-on
+ * while the taps wobbled all over, so high interval variance costs points.
+ * cv ≲ 4% (a tight human tapper) is free; it ramps up to −25 from there.
+ */
+export function wobblePenalty(bpms: number[]): number {
+  if (bpms.length < 4) return 0;
+  const avg = bpms.reduce((s, b) => s + b, 0) / bpms.length;
+  const sd = Math.sqrt(bpms.reduce((s, b) => s + (b - avg) ** 2, 0) / bpms.length);
+  const cv = sd / avg;
+  return Math.max(0, Math.min(25, Math.round((cv - 0.04) * 250)));
+}
+
 /** The run's single BPM guess: median over every interval (robust to stumbles). */
 export function guessFromPoints(points: TapPoint[]): number {
   const bpms = points.map((p) => p.bpm).sort((a, b) => a - b);
@@ -183,6 +196,8 @@ export type DailyResult = {
   guess: number | null;
   score: number | null;
   skipped?: boolean;
+  /** per-interval BPMs of the scoring run, oldest first — used for the share graph */
+  bpms?: number[];
 };
 
 export type DailyResults = Record<string, DailyResult>;

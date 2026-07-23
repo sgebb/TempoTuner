@@ -245,6 +245,25 @@ body {
   color: var(--fg);
 }
 
+.challenge-title {
+  text-align: center;
+  padding: 2px 0;
+}
+
+.challenge-title strong {
+  display: block;
+  font-size: clamp(20px, 6vmin, 28px);
+  font-weight: 800;
+}
+
+.challenge-title span {
+  display: block;
+  margin-top: 2px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
 /* ---------- demo ---------- */
 .demo-lyric {
   font-size: clamp(48px, 16vmin, 96px);
@@ -262,21 +281,6 @@ body {
   background: var(--card);
   padding: 6px 6px 0;
   position: relative;
-}
-
-.graph-reset {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  width: 42px;
-  height: 42px;
-  font-size: 19px;
-  z-index: 3;
-}
-
-.graph-reset:disabled {
-  opacity: 0.35;
-  cursor: default;
 }
 
 .graph-hint-label {
@@ -365,6 +369,39 @@ body {
 }
 
 /* ---------- controls ---------- */
+/* breathing room between graph and buttons, used for hand-drawn nudges */
+.controls-hint {
+  min-height: 38px;
+  display: flex;
+  align-items: flex-end;
+  font-size: clamp(15px, 4vmin, 19px);
+  padding: 2px 6px 0;
+  cursor: default;
+}
+
+.hint-inner {
+  display: inline-flex;
+  align-items: flex-start;
+  gap: 6px;
+  transform: rotate(-1.5deg);
+}
+
+.hint-left {
+  margin-right: auto;
+}
+
+.hint-center {
+  margin: 0 auto;
+}
+
+.hint-arrow {
+  width: 20px;
+  height: 32px;
+  flex: 0 0 auto;
+  margin-top: 6px;
+  color: var(--accent);
+}
+
 .controls {
   display: flex;
   gap: 8px;
@@ -491,6 +528,20 @@ body {
   }
 }
 
+/* centered modal variant — the daily is content, not a bottom-sheet tool,
+   and pinned to the bottom it read like a cookie banner */
+.overlay-center {
+  align-items: center;
+  padding: 16px;
+}
+
+.overlay-center .sheet {
+  max-width: 480px;
+  border-radius: 22px;
+  border-bottom: 1.5px solid var(--border);
+  padding-bottom: 20px;
+}
+
 .sheet-header {
   display: flex;
   align-items: center;
@@ -598,24 +649,6 @@ body {
   background: var(--accent-soft);
 }
 
-/* share sheet */
-.share-message {
-  width: 100%;
-  border: 1.5px solid var(--border);
-  border-radius: 12px;
-  background: var(--card);
-  color: var(--fg);
-  font-family: inherit;
-  font-size: 15px;
-  padding: 10px 12px;
-  resize: none;
-}
-
-.share-message:focus {
-  outline: 2px solid var(--accent);
-  border-color: transparent;
-}
-
 /* daily sheet */
 .daily-song {
   display: flex;
@@ -698,6 +731,14 @@ body {
   font-size: 17px;
   font-weight: 500;
   color: var(--accent);
+}
+
+.wobble-note {
+  font-family: 'Caveat', 'Segoe Script', cursive;
+  font-size: 17px;
+  font-weight: 500;
+  color: var(--warn);
+  text-align: center;
 }
 
 .daily-streak-row {
@@ -844,5 +885,8 @@ body {
   }
   .bpm-big {
     font-size: clamp(56px, 16vmin, 96px);
+  }
+  .controls-hint {
+    display: none;
   }
 }

@@ -34,16 +34,17 @@ const HelpModal = ({ open, onClose }: Props) => (
         </p>
         <p>
           <strong>Set a target BPM</strong> to get a dashed target line on the graph and unlock the
-          metronome. The metronome counts you in, then <em>fades out over eight beats</em> — keep
-          going on your own and see how steady you stayed.
+          metronome. Practice with it clicking, or turn it off after a few beats and see how steady
+          you stay on your own.
         </p>
         <p>
           <strong>Record</strong> your voice while you tap, then play it back: a playhead moves along
           the graph so you can hear the exact moment your timing drifted.
         </p>
         <p>
-          <strong>Share</strong> exports your session — stats and graph — as an image with your own
-          note, and <strong>reset</strong> clears taps and recording but keeps your target.
+          <strong>Share</strong> your daily challenge result as an image — score, streak and your
+          tempo graph — and <strong>reset</strong> (↻) clears taps and recording but keeps your
+          target.
         </p>
         <p>
           <strong>Daily challenge</strong> — every day there's one well-known song. Sing it in your

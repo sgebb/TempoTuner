@@ -6,13 +6,17 @@ import {
   computeStreak,
   scoreGuess,
   shiftDateKey,
+  wobblePenalty,
 } from '../lib/daily';
+import { renderDailyShareImage, shareOrDownload } from '../lib/shareImage';
 
 export type RunReveal = {
   song: Song;
   guess: number;
   score: number;
   octave: Octave;
+  /** consistency points deducted from the accuracy score (0 = steady run) */
+  wobble: number;
   practice: boolean;
 };
 
@@ -20,12 +24,12 @@ type Props = {
   todayKey: string;
   day: number;
   song: Song;
+  dark: boolean;
   results: DailyResults;
   /** a just-finished run to reveal; null → show today's stored result or the intro */
   reveal: RunReveal | null;
   onStart: (song: Song, practice: boolean) => void;
   onDemo: () => void;
-  onSkip: () => void;
   onPracticeAt: (bpm: number) => void;
   onClose: () => void;
 };
@@ -66,8 +70,9 @@ const HistoryDots = ({ results, todayKey }: { results: DailyResults; todayKey: s
   </div>
 );
 
-const DailySheet = ({ todayKey, day, song, results, reveal, onStart, onDemo, onSkip, onPracticeAt, onClose }: Props) => {
+const DailySheet = ({ todayKey, day, song, dark, results, reveal, onStart, onDemo, onPracticeAt, onClose }: Props) => {
   const [copied, setCopied] = useState(false);
+  const [busy, setBusy] = useState(false);
   const stored = results[todayKey];
   const streak = computeStreak(results, todayKey);
 
@@ -75,26 +80,45 @@ const DailySheet = ({ todayKey, day, song, results, reveal, onStart, onDemo, onS
   const shown: RunReveal | null =
     reveal ??
     (stored && !stored.skipped && stored.guess !== null && stored.score !== null
-      ? { song, guess: stored.guess, score: stored.score, octave: scoreGuess(stored.guess, song.bpm).octave, practice: false }
+      ? {
+          song,
+          guess: stored.guess,
+          score: stored.score,
+          octave: scoreGuess(stored.guess, song.bpm).octave,
+          wobble: stored.bpms ? wobblePenalty(stored.bpms) : 0,
+          practice: false,
+        }
       : null);
 
   const share = async () => {
-    const text = `TempoTuner Daily #${day} · ${song.title} — ${song.artist} · 🎯 ${shown!.score}/100 · 🔥${streak}\nhttps://tempotuner.app`;
-    if (navigator.share) {
-      try {
-        await navigator.share({ text });
-        return;
-      } catch (err) {
-        if ((err as DOMException)?.name === 'AbortError') return;
+    if (!shown || busy) return;
+    setBusy(true);
+    try {
+      const text = `TempoTuner Daily #${day} · ${song.title} — ${song.artist} · 🎯 ${shown.score}/100 · 🔥${streak}\nhttps://tempotuner.app`;
+      const blob = await renderDailyShareImage({
+        day,
+        song: shown.song,
+        guess: shown.guess,
+        score: shown.score,
+        octave: shown.octave,
+        streak,
+        bpms: stored?.bpms ?? null,
+        dark,
+      });
+      const outcome = await shareOrDownload(blob, text);
+      if (outcome === 'downloaded') {
+        // no share sheet on this device — image downloaded, text to clipboard
+        await navigator.clipboard.writeText(text).catch(() => undefined);
+        setCopied(true);
+        window.setTimeout(() => setCopied(false), 2000);
       }
+    } finally {
+      setBusy(false);
     }
-    await navigator.clipboard.writeText(text);
-    setCopied(true);
-    window.setTimeout(() => setCopied(false), 2000);
   };
 
   return (
-    <div className="overlay" onClick={onClose} data-no-tap>
+    <div className="overlay overlay-center" onClick={onClose} data-no-tap>
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-header">
           <h2>🎵 Daily #{day}</h2>
@@ -103,10 +127,12 @@ const DailySheet = ({ todayKey, day, song, results, reveal, onStart, onDemo, onS
           </button>
         </div>
 
-        <div className="daily-song">
-          <strong>{(shown?.song ?? song).title}</strong>
-          <span className="daily-artist">{(shown?.song ?? song).artist}</span>
-        </div>
+        {shown && (
+          <div className="daily-song">
+            <strong>{shown.song.title}</strong>
+            <span className="daily-artist">{shown.song.artist}</span>
+          </div>
+        )}
 
         {shown ? (
           <>
@@ -124,8 +150,16 @@ const DailySheet = ({ todayKey, day, song, results, reveal, onStart, onDemo, onS
               </div>
             </div>
             <div className="reveal-score">
-              🎯 <strong>{shown.score}</strong>/100
+              <span>
+                🎯 <strong>{shown.score}</strong>/100
+              </span>
               {octaveNote(shown.octave) && <span className="octave-note">{octaveNote(shown.octave)}</span>}
+              {shown.wobble > 0 && (
+                <span className="wobble-note">
+                  −{shown.wobble} for an unsteady beat — finding the tempo is half the game, holding
+                  it is the rest!
+                </span>
+              )}
             </div>
             {!shown.practice && (
               <div className="daily-streak-row">
@@ -147,35 +181,21 @@ const DailySheet = ({ todayKey, day, song, results, reveal, onStart, onDemo, onS
                 Practice at {shown.song.bpm}
               </button>
               {!shown.practice && (
-                <button className="btn btn-primary" onClick={share}>
-                  {copied ? 'Copied!' : 'Share'}
+                <button className="btn btn-primary" onClick={share} disabled={busy}>
+                  {busy ? 'Creating…' : copied ? 'Copied!' : 'Share'}
                 </button>
               )}
-            </div>
-          </>
-        ) : stored?.skipped ? (
-          <>
-            <p className="sheet-hint">
-              You skipped today's song — streak safe. 🔥 {streak} day streak
-            </p>
-            <HistoryDots results={results} todayKey={todayKey} />
-            <div className="sheet-actions">
-              <button className="btn btn-primary" onClick={() => onStart(song, true)}>
-                Play anyway (practice)
-              </button>
             </div>
           </>
         ) : (
           <>
             <p className="sheet-hint">
-              Sing it in your head and tap the <strong>main beat</strong> — the steady pulse you'd
-              clap along to, not every word — 16 taps, no live numbers. Your first run is your
-              score of record. Unsure what to tap? Watch the demo first.
+              Start to reveal today's song, then sing it in your head and tap the{' '}
+              <strong>main beat</strong> — the steady pulse you'd clap along to, not every word —
+              16 taps, no live numbers. Your first full run is your score of record; stopping
+              mid-run doesn't count. Unsure what to tap? Watch the demo first.
             </p>
             <div className="sheet-actions">
-              <button className="btn btn-ghost" onClick={onSkip}>
-                Don't know it? Skip
-              </button>
               <button className="btn btn-ghost" onClick={onDemo}>
                 ▶ Show me how
               </button>
