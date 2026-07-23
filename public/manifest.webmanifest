@@ -1,7 +1,7 @@
 {
   "name": "TempoTuner — Tap Tempo Trainer",
   "short_name": "TempoTuner",
-  "description": "Tap the beat while you sing or play and see exactly where your tempo drifted. Free rhythm practice tool with BPM graph, fading metronome and voice recording.",
+  "description": "Tap the beat while you sing or play and see exactly where your tempo drifted. Daily song tempo challenge, BPM graph, metronome and voice recording.",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
