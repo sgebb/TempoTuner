@@ -1,12 +1,15 @@
 import { METRONOME_BODY_PATH, METRONOME_NEEDLE_PATH } from '../components/icons';
-import { Octave, Song } from './daily';
+import { Octave } from './daily';
 
 export type DailyShareData = {
   day: number;
-  song: Song;
+  title: string;
+  artist: string;
+  /** the song's real BPM; null only for legacy local results */
+  actual: number | null;
   guess: number;
   score: number;
-  octave: Octave;
+  octave: Octave | null;
   streak: number;
   /** per-interval BPMs of the run, oldest first; null for results saved before graphs were stored */
   bpms: number[] | null;
@@ -68,14 +71,14 @@ export async function renderDailyShareImage(data: DailyShareData): Promise<Blob>
   ctx.fillText(`Daily #${data.day}`, 64, 232);
   ctx.fillStyle = muted;
   ctx.font = '600 44px "Segoe UI", system-ui, sans-serif';
-  ctx.fillText(truncateToWidth(ctx, `${data.song.title} — ${data.song.artist}`, W - 128), 64, 296);
+  ctx.fillText(truncateToWidth(ctx, `${data.title} — ${data.artist}`, W - 128), 64, 296);
 
   // You vs actual
   ctx.fillStyle = fg;
   ctx.font = 'bold 130px "Segoe UI", system-ui, sans-serif';
   ctx.fillText(`${data.guess}`, 64, 460);
   ctx.fillStyle = ACCENT;
-  ctx.fillText(`${data.song.bpm}`, 560, 460);
+  ctx.fillText(`${data.actual ?? '—'}`, 560, 460);
   ctx.font = '40px "Segoe UI", system-ui, sans-serif';
   ctx.fillStyle = muted;
   ctx.fillText('you', 64, 515);
@@ -98,8 +101,15 @@ export async function renderDailyShareImage(data: DailyShareData): Promise<Blob>
   ctx.strokeRect(gx, gy, gw, gh);
 
   const lineBpm =
-    data.octave === 'half' ? data.song.bpm / 2 : data.octave === 'double' ? data.song.bpm * 2 : data.song.bpm;
+    data.actual === null
+      ? null
+      : data.octave === 'half'
+        ? data.actual / 2
+        : data.octave === 'double'
+          ? data.actual * 2
+          : data.actual;
   const dotColor = (bpm: number) => {
+    if (lineBpm === null) return ACCENT;
     const diff = Math.abs(bpm - lineBpm);
     return diff <= 3 ? good : diff <= 8 ? warn : bad;
   };
@@ -112,7 +122,7 @@ export async function renderDailyShareImage(data: DailyShareData): Promise<Blob>
       return { t, bpm };
     });
 
-    const all = [...data.bpms, lineBpm];
+    const all = lineBpm === null ? [...data.bpms] : [...data.bpms, lineBpm];
     let lo = Math.min(...all) - 10;
     let hi = Math.max(...all) + 10;
     if (hi - lo < 50) {
@@ -125,18 +135,21 @@ export async function renderDailyShareImage(data: DailyShareData): Promise<Blob>
     const px = (tt: number) => gx + 30 + ((tt - t0) / (t1 - t0)) * (gw - 60);
     const py = (b: number) => gy + 30 + ((hi - b) / (hi - lo)) * (gh - 60);
 
-    ctx.strokeStyle = ACCENT;
-    ctx.lineWidth = 3;
-    ctx.setLineDash([14, 10]);
-    ctx.beginPath();
-    ctx.moveTo(gx + 20, py(lineBpm));
-    ctx.lineTo(gx + gw - 20, py(lineBpm));
-    ctx.stroke();
-    ctx.setLineDash([]);
-    ctx.fillStyle = ACCENT;
-    ctx.font = '600 30px "Segoe UI", system-ui, sans-serif';
-    const lineLabel = data.octave === 'straight' ? 'song tempo' : `song tempo (${data.octave} time)`;
-    ctx.fillText(lineLabel, gx + 24, py(lineBpm) - 12);
+    if (lineBpm !== null) {
+      ctx.strokeStyle = ACCENT;
+      ctx.lineWidth = 3;
+      ctx.setLineDash([14, 10]);
+      ctx.beginPath();
+      ctx.moveTo(gx + 20, py(lineBpm));
+      ctx.lineTo(gx + gw - 20, py(lineBpm));
+      ctx.stroke();
+      ctx.setLineDash([]);
+      ctx.fillStyle = ACCENT;
+      ctx.font = '600 30px "Segoe UI", system-ui, sans-serif';
+      const lineLabel =
+        data.octave === 'half' || data.octave === 'double' ? `song tempo (${data.octave} time)` : 'song tempo';
+      ctx.fillText(lineLabel, gx + 24, py(lineBpm) - 12);
+    }
 
     // Smoothed dashed trend line — matches the in-app graph.
     ctx.strokeStyle = fg;

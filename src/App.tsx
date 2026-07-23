@@ -12,16 +12,14 @@ import { accuracyColor, computeStats, currentBpm, tapsToPoints } from './lib/tem
 import {
   CHALLENGE_POINTS,
   DailyResults,
-  Song,
   dailyNumber,
-  guessFromPoints,
   loadDailyResults,
   localDateKey,
   saveDailyResults,
-  scoreGuess,
-  songForDay,
-  wobblePenalty,
+  scoreRun,
 } from './lib/daily';
+import { fetchDaily, submitRun } from './lib/leaderboard';
+import LeaderboardSheet from './components/LeaderboardSheet';
 
 type Ripple = { id: number; x: number; y: number };
 
@@ -45,6 +43,7 @@ const App = () => {
   const [ripples, setRipples] = useState<Ripple[]>([]);
   const [helpOpen, setHelpOpen] = useState(false);
   const [targetOpen, setTargetOpen] = useState(false);
+  const [lbOpen, setLbOpen] = useState(false);
   // The daily challenge greets you (Wordle-style) until played — but only once
   // per day, so dismissing it leaves just the pulsing chip as a nudge.
   const [dailyOpen, setDailyOpen] = useState(() => {
@@ -52,8 +51,18 @@ const App = () => {
     return !loadDailyResults()[key] && localStorage.getItem('tt-daily-prompted') !== key;
   });
   const [dailyResults, setDailyResults] = useState<DailyResults>(loadDailyResults);
-  const [challenge, setChallenge] = useState<{ song: Song; practice: boolean } | null>(null);
+  // bpm is only known for practice replays (revealed by a scored run); the
+  // real daily is scored server-side, which owns the answer.
+  const [challenge, setChallenge] = useState<{
+    title: string;
+    artist: string;
+    bpm: number | null;
+    practice: boolean;
+  } | null>(null);
   const [runReveal, setRunReveal] = useState<RunReveal | null>(null);
+  const [scoringRun, setScoringRun] = useState(false);
+  const [runError, setRunError] = useState(false);
+  const pendingRunRef = useRef<{ title: string; artist: string; bpms: number[] } | null>(null);
   const rippleId = useRef(0);
   const metronomePendingRef = useRef(false);
   const activeTapRef = useRef<{
@@ -74,7 +83,6 @@ const App = () => {
 
   const todayKey = localDateKey();
   const day = dailyNumber(todayKey);
-  const dailySong = songForDay(day);
   const todayResult = dailyResults[todayKey];
 
   useEffect(() => {
@@ -177,10 +185,25 @@ const App = () => {
     setDailyOpen(false);
   };
 
-  const startChallenge = (song: Song, practice: boolean) => {
+  // The real daily: ask the server what today's song is (title/artist only —
+  // the BPM never reaches the client before the run is scored).
+  const startDaily = async () => {
+    const info = await fetchDaily(todayKey); // throws → DailySheet shows the error
     reset();
     setRunReveal(null);
-    setChallenge({ song, practice });
+    setRunError(false);
+    pendingRunRef.current = null;
+    setChallenge({ title: info.title, artist: info.artist, bpm: null, practice: false });
+    dismissDaily();
+  };
+
+  // Practice replays a song whose BPM a scored run already revealed.
+  const startPractice = (title: string, artist: string, bpm: number) => {
+    reset();
+    setRunReveal(null);
+    setRunError(false);
+    pendingRunRef.current = null;
+    setChallenge({ title, artist, bpm, practice: true });
     dismissDaily();
   };
 
@@ -202,25 +225,69 @@ const App = () => {
     setDailyOpen(true);
   };
 
-  // A challenge run ends itself after enough valid intervals. The score is
-  // tempo accuracy (octave-aware) minus a consistency penalty for wobbly taps.
+  // Send the pending real run to the server for scoring; the reveal (and the
+  // actual BPM) come back in the response. Kept callable for the retry button.
+  const scorePendingRun = useCallback(async () => {
+    const pending = pendingRunRef.current;
+    if (!pending) return;
+    setRunError(false);
+    setScoringRun(true);
+    try {
+      const res = await submitRun(todayKey, pending.bpms);
+      const practice = !!dailyResults[todayKey]; // played already → doesn't count
+      if (!practice) {
+        const next = {
+          ...dailyResults,
+          [todayKey]: {
+            day,
+            guess: res.guess,
+            score: res.score,
+            bpms: pending.bpms,
+            title: pending.title,
+            artist: pending.artist,
+            actual: res.actualBpm,
+          },
+        };
+        setDailyResults(next);
+        saveDailyResults(next);
+      }
+      setRunReveal({
+        title: pending.title,
+        artist: pending.artist,
+        actual: res.actualBpm,
+        guess: res.guess,
+        score: res.score,
+        octave: res.octave,
+        wobble: res.wobble,
+        practice,
+        rankToday: res.rankToday,
+        playersToday: res.playersToday,
+      });
+      pendingRunRef.current = null;
+    } catch {
+      setRunError(true);
+    } finally {
+      setScoringRun(false);
+    }
+  }, [todayKey, dailyResults, day]);
+
+  // A challenge run ends itself after enough valid intervals. Practice runs
+  // (BPM known from an earlier reveal) score locally; the real daily goes to
+  // the server, which owns the answer.
   useEffect(() => {
     if (!challenge || points.length < CHALLENGE_POINTS) return;
-    const guess = guessFromPoints(points);
-    const { score: accuracy, octave } = scoreGuess(guess, challenge.song.bpm);
     const bpms = points.map((p) => Math.round(p.bpm));
-    const wobble = wobblePenalty(bpms);
-    const score = Math.max(0, accuracy - wobble);
-    const countsForToday = !challenge.practice && !dailyResults[todayKey];
-    if (countsForToday) {
-      const next = { ...dailyResults, [todayKey]: { day, guess, score, bpms } };
-      setDailyResults(next);
-      saveDailyResults(next);
-    }
-    setRunReveal({ song: challenge.song, guess, score, octave, wobble, practice: !countsForToday });
+    const { title, artist, bpm, practice } = challenge;
     setChallenge(null);
     setDailyOpen(true);
-  }, [challenge, points, dailyResults, todayKey, day]);
+    if (practice && bpm !== null) {
+      const { guess, octave, wobble, score } = scoreRun(bpms, bpm);
+      setRunReveal({ title, artist, actual: bpm, guess, score, octave, wobble, practice: true });
+      return;
+    }
+    pendingRunRef.current = { title, artist, bpms };
+    void scorePendingRun();
+  }, [challenge, points, scorePendingRun]);
 
   const toggleMetronome = () => {
     if (metronome.isOn) metronome.stop();
@@ -273,8 +340,8 @@ const App = () => {
 
       {challenge ? (
         <div className="challenge-title">
-          <strong>🎵 {challenge.song.title}</strong>
-          <span>{challenge.song.artist}</span>
+          <strong>🎵 {challenge.title}</strong>
+          <span>{challenge.artist}</span>
         </div>
       ) : demo.running ? (
         <p className="squiggle tagline challenge-song">🎵 {DEMO_SONG.title} — demo</p>
@@ -504,12 +571,16 @@ const App = () => {
         <DailySheet
           todayKey={todayKey}
           day={day}
-          song={dailySong}
           dark={dark}
           results={dailyResults}
           reveal={runReveal}
-          onStart={startChallenge}
+          scoring={scoringRun}
+          runError={runError}
+          onRetryRun={scorePendingRun}
+          onStartDaily={startDaily}
+          onStartPractice={startPractice}
           onDemo={startDemo}
+          onLeaderboard={() => setLbOpen(true)}
           onPracticeAt={(v) => {
             setTargetBpm(v);
             dismissDaily();
@@ -519,6 +590,14 @@ const App = () => {
             dismissDaily();
             setRunReveal(null);
           }}
+        />
+      )}
+      {lbOpen && (
+        <LeaderboardSheet
+          todayKey={todayKey}
+          day={day}
+          todayResult={todayResult}
+          onClose={() => setLbOpen(false)}
         />
       )}
       {targetOpen && (

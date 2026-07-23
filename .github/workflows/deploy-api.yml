@@ -1,0 +1,50 @@
+# Deploys the leaderboard API to Azure Functions on pushes to main that touch
+# api/ or shared/. Auth is OIDC federated credentials — no stored secrets.
+# See api/README.md for the one-time Azure setup.
+name: Deploy API
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'api/**'
+      - 'shared/**'
+      - '.github/workflows/deploy-api.yml'
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+env:
+  AZURE_FUNCTIONAPP_NAME: tempotuner-api # ← your function app name
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+
+      - name: Build
+        working-directory: api
+        run: |
+          npm ci
+          npm run build
+          npm prune --omit=dev
+
+      - name: Azure login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZUREAPPSERVICE_CLIENTID_69D77BFA678F4347A7125944CB86C1BE }}
+          tenant-id: ${{ secrets.AZUREAPPSERVICE_TENANTID_0349E298A0E5494EB9B6AA0B7C620CBC }}
+          subscription-id: ${{ secrets.AZUREAPPSERVICE_SUBSCRIPTIONID_C0FABFDD19F84CAD9038C2BCBB9BB5AC }}
+
+      - name: Deploy to Azure Functions
+        uses: Azure/functions-action@v1
+        with:
+          app-name: ${{ env.AZURE_FUNCTIONAPP_NAME }}
+          package: ./api

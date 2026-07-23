@@ -66,8 +66,10 @@ const HelpModal = ({ open, onClose }: Props) => (
           install and no account. Everything stays on your device — nothing is uploaded.
         </p>
         <p>
-          <strong>Cookies</strong> — taps and recordings never leave your device. If you said yes
-          to the cookie question, we count visits anonymously with Google Analytics — nothing more.{' '}
+          <strong>Privacy</strong> — taps and recordings never leave your device. If you said yes
+          to the cookie question, we count visits anonymously with Google Analytics — nothing more.
+          If you join the daily leaderboard, your chosen nickname and daily scores are stored on
+          our server (no email, no account); everything else stays local.{' '}
           <button className="linklike" onClick={changeCookieChoice}>
             Change cookie choice
           </button>

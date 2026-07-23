@@ -2,34 +2,45 @@ import { useEffect, useState } from 'react';
 import {
   DailyResults,
   Octave,
-  Song,
   computeStreak,
   scoreGuess,
   shiftDateKey,
   wobblePenalty,
 } from '../lib/daily';
 import { renderDailyShareImage, shareOrDownload } from '../lib/shareImage';
+import { getNickname } from '../lib/leaderboard';
 
 export type RunReveal = {
-  song: Song;
+  title: string;
+  artist: string;
+  /** the song's real BPM — null only for legacy results stored before the server owned it */
+  actual: number | null;
   guess: number;
   score: number;
-  octave: Octave;
+  octave: Octave | null;
   /** consistency points deducted from the accuracy score (0 = steady run) */
   wobble: number;
   practice: boolean;
+  rankToday?: number;
+  playersToday?: number;
 };
 
 type Props = {
   todayKey: string;
   day: number;
-  song: Song;
   dark: boolean;
   results: DailyResults;
   /** a just-finished run to reveal; null → show today's stored result or the intro */
   reveal: RunReveal | null;
-  onStart: (song: Song, practice: boolean) => void;
+  /** a finished run is at the server being scored */
+  scoring: boolean;
+  /** the server couldn't be reached to score the finished run */
+  runError: boolean;
+  onRetryRun: () => void;
+  onStartDaily: () => Promise<void>;
+  onStartPractice: (title: string, artist: string, bpm: number) => void;
   onDemo: () => void;
+  onLeaderboard: () => void;
   onPracticeAt: (bpm: number) => void;
   onClose: () => void;
 };
@@ -51,7 +62,7 @@ const CountUp = ({ value }: { value: number }) => {
   return <>{shown}</>;
 };
 
-const octaveNote = (octave: Octave): string | null => {
+const octaveNote = (octave: Octave | null): string | null => {
   if (octave === 'half') return 'you felt it in half time — that counts!';
   if (octave === 'double') return 'you felt it in double time — that counts!';
   return null;
@@ -70,9 +81,26 @@ const HistoryDots = ({ results, todayKey }: { results: DailyResults; todayKey: s
   </div>
 );
 
-const DailySheet = ({ todayKey, day, song, dark, results, reveal, onStart, onDemo, onPracticeAt, onClose }: Props) => {
+const DailySheet = ({
+  todayKey,
+  day,
+  dark,
+  results,
+  reveal,
+  scoring,
+  runError,
+  onRetryRun,
+  onStartDaily,
+  onStartPractice,
+  onDemo,
+  onLeaderboard,
+  onPracticeAt,
+  onClose,
+}: Props) => {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [startBusy, setStartBusy] = useState(false);
+  const [startError, setStartError] = useState(false);
   const stored = results[todayKey];
   const streak = computeStreak(results, todayKey);
 
@@ -81,23 +109,38 @@ const DailySheet = ({ todayKey, day, song, dark, results, reveal, onStart, onDem
     reveal ??
     (stored && !stored.skipped && stored.guess !== null && stored.score !== null
       ? {
-          song,
+          title: stored.title ?? `Daily #${day}`,
+          artist: stored.artist ?? '',
+          actual: stored.actual ?? null,
           guess: stored.guess,
           score: stored.score,
-          octave: scoreGuess(stored.guess, song.bpm).octave,
+          octave: stored.actual != null ? scoreGuess(stored.guess, stored.actual).octave : null,
           wobble: stored.bpms ? wobblePenalty(stored.bpms) : 0,
           practice: false,
         }
       : null);
 
+  const start = async () => {
+    setStartBusy(true);
+    setStartError(false);
+    try {
+      await onStartDaily(); // on success this sheet unmounts
+    } catch {
+      setStartError(true);
+      setStartBusy(false);
+    }
+  };
+
   const share = async () => {
     if (!shown || busy) return;
     setBusy(true);
     try {
-      const text = `TempoTuner Daily #${day} · ${song.title} — ${song.artist} · 🎯 ${shown.score}/100 · 🔥${streak}\nhttps://tempotuner.app`;
+      const text = `TempoTuner Daily #${day} · ${shown.title} — ${shown.artist} · 🎯 ${shown.score}/100 · 🔥${streak}\nhttps://tempotuner.app`;
       const blob = await renderDailyShareImage({
         day,
-        song: shown.song,
+        title: shown.title,
+        artist: shown.artist,
+        actual: shown.actual,
         guess: shown.guess,
         score: shown.score,
         octave: shown.octave,
@@ -122,20 +165,36 @@ const DailySheet = ({ todayKey, day, song, dark, results, reveal, onStart, onDem
       <div className="sheet" onClick={(e) => e.stopPropagation()}>
         <div className="sheet-header">
           <h2>🎵 Daily #{day}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
+          <span className="sheet-header-buttons">
+            <button className="icon-btn" onClick={onLeaderboard} aria-label="Leaderboard" title="Leaderboard">
+              🏆
+            </button>
+            <button className="icon-btn" onClick={onClose} aria-label="Close">
+              ✕
+            </button>
+          </span>
         </div>
 
-        {shown && (
-          <div className="daily-song">
-            <strong>{shown.song.title}</strong>
-            <span className="daily-artist">{shown.song.artist}</span>
-          </div>
-        )}
-
-        {shown ? (
+        {scoring ? (
+          <p className="sheet-hint">🥁 scoring your run…</p>
+        ) : runError ? (
           <>
+            <p className="sheet-hint">
+              Couldn't reach the server to score your run — your taps are safe, try again in a
+              moment.
+            </p>
+            <div className="sheet-actions">
+              <button className="btn btn-primary" onClick={onRetryRun}>
+                Retry
+              </button>
+            </div>
+          </>
+        ) : shown ? (
+          <>
+            <div className="daily-song">
+              <strong>{shown.title}</strong>
+              <span className="daily-artist">{shown.artist}</span>
+            </div>
             {shown.practice && <p className="sheet-hint">practice run — doesn't count</p>}
             <div className="reveal-row">
               <div className="reveal-cell">
@@ -145,7 +204,7 @@ const DailySheet = ({ todayKey, day, song, dark, results, reveal, onStart, onDem
                 <div className="reveal-cap">you</div>
               </div>
               <div className="reveal-cell reveal-actual">
-                <div className="reveal-num">{shown.song.bpm}</div>
+                <div className="reveal-num">{shown.actual ?? '—'}</div>
                 <div className="reveal-cap">actual</div>
               </div>
             </div>
@@ -153,6 +212,13 @@ const DailySheet = ({ todayKey, day, song, dark, results, reveal, onStart, onDem
               <span>
                 🎯 <strong>{shown.score}</strong>/100
               </span>
+              {!shown.practice && shown.rankToday !== undefined && (
+                <span className="rank-note">
+                  {getNickname()
+                    ? `#${shown.rankToday} of ${shown.playersToday} today`
+                    : `you'd be #${shown.rankToday} of ${shown.playersToday} — join via 🏆`}
+                </span>
+              )}
               {octaveNote(shown.octave) && <span className="octave-note">{octaveNote(shown.octave)}</span>}
               {shown.wobble > 0 && (
                 <span className="wobble-note">
@@ -168,18 +234,19 @@ const DailySheet = ({ todayKey, day, song, dark, results, reveal, onStart, onDem
               </div>
             )}
             <div className="sheet-actions">
-              {stored ? (
-                <button className="btn btn-ghost" onClick={() => onStart(song, true)}>
+              {shown.actual !== null && (
+                <button
+                  className="btn btn-ghost"
+                  onClick={() => onStartPractice(shown.title, shown.artist, shown.actual!)}
+                >
                   Play again
                 </button>
-              ) : (
-                <button className="btn btn-primary" onClick={() => onStart(song, false)}>
-                  Start Daily #{day}
+              )}
+              {shown.actual !== null && (
+                <button className="btn btn-ghost" onClick={() => onPracticeAt(shown.actual!)}>
+                  Practice at {shown.actual}
                 </button>
               )}
-              <button className="btn btn-ghost" onClick={() => onPracticeAt(shown.song.bpm)}>
-                Practice at {shown.song.bpm}
-              </button>
               {!shown.practice && (
                 <button className="btn btn-primary" onClick={share} disabled={busy}>
                   {busy ? 'Creating…' : copied ? 'Copied!' : 'Share'}
@@ -195,12 +262,17 @@ const DailySheet = ({ todayKey, day, song, dark, results, reveal, onStart, onDem
               16 taps, no live numbers. Your first full run is your score of record; stopping
               mid-run doesn't count. Unsure what to tap? Watch the demo first.
             </p>
+            {startError && (
+              <p className="sheet-hint start-error">
+                Couldn't fetch today's song — are you online? Try again in a moment.
+              </p>
+            )}
             <div className="sheet-actions">
               <button className="btn btn-ghost" onClick={onDemo}>
                 ▶ Show me how
               </button>
-              <button className="btn btn-primary" onClick={() => onStart(song, false)}>
-                Start
+              <button className="btn btn-primary" onClick={start} disabled={startBusy}>
+                {startBusy ? 'Starting…' : 'Start'}
               </button>
             </div>
           </>

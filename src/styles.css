@@ -548,6 +548,11 @@ body {
   justify-content: space-between;
 }
 
+.sheet-header-buttons {
+  display: inline-flex;
+  gap: 8px;
+}
+
 .sheet-header h2 {
   font-size: 19px;
   font-weight: 800;
@@ -741,6 +746,16 @@ body {
   text-align: center;
 }
 
+.rank-note {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.start-error {
+  color: var(--bad);
+}
+
 .daily-streak-row {
   display: flex;
   align-items: center;
@@ -785,6 +800,85 @@ body {
 .dot-bad {
   background: var(--bad);
   border-color: var(--bad);
+}
+
+/* leaderboard sheet */
+.lb-join {
+  display: flex;
+  gap: 10px;
+}
+
+.nick-input {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1.5px solid var(--border);
+  border-radius: 999px;
+  background: var(--card);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 700;
+  padding: 10px 16px;
+}
+
+.nick-input:focus {
+  outline: 2px solid var(--accent);
+  border-color: transparent;
+}
+
+.lb-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: 45dvh;
+  overflow-y: auto;
+}
+
+.lb-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  padding: 7px 10px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.lb-row:nth-child(even) {
+  background: var(--card);
+}
+
+.lb-you {
+  background: var(--accent-soft) !important;
+  outline: 1.5px dashed var(--accent);
+}
+
+.lb-rank {
+  flex: 0 0 34px;
+  text-align: center;
+}
+
+.lb-nick {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lb-games {
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.lb-score {
+  font-variant-numeric: tabular-nums;
+}
+
+.lb-you-line,
+.lb-playing-as {
+  text-align: center;
 }
 
 /* help sheet */
