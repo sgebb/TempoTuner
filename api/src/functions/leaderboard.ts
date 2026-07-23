@@ -55,9 +55,10 @@ export async function leaderboard(req: HttpRequest): Promise<HttpResponseInit> {
     };
   }
 
+  // No caching: after a run, the sheet must show the fresh board immediately.
   return {
     status: 200,
-    headers: { 'Cache-Control': 'public, max-age=30' },
+    headers: { 'Cache-Control': 'no-store' },
     jsonBody: { day, today, allTime, you, playersToday: todayAll.length },
   };
 }

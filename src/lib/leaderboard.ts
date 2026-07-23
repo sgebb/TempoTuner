@@ -37,7 +37,9 @@ export type LeaderboardData = {
 };
 
 export async function fetchLeaderboard(day: string): Promise<LeaderboardData> {
-  const res = await fetch(`${API_BASE}/leaderboard?day=${day}&uuid=${getUuid()}`);
+  // no-store: the board must reflect a just-submitted run even while the old
+  // server response would still be fresh in the HTTP cache
+  const res = await fetch(`${API_BASE}/leaderboard?day=${day}&uuid=${getUuid()}`, { cache: 'no-store' });
   if (!res.ok) throw new Error(`leaderboard fetch failed: ${res.status}`);
   return res.json();
 }
