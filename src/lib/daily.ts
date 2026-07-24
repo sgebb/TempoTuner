@@ -22,6 +22,8 @@ export type DailyResult = {
   title?: string;
   artist?: string;
   actual?: number;
+  /** points deducted for listening to the clip before the run */
+  clip?: number;
 };
 
 export type DailyResults = Record<string, DailyResult>;

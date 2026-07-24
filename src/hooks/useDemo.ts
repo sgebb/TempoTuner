@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ensureAudiblePlayback } from '../lib/audio';
 
 /**
  * Daily-challenge demo: plays Twinkle Twinkle Little Star (first two phrases)
@@ -46,7 +47,7 @@ const scheduleTick = (ctx: AudioContext, time: number) => {
   osc.type = 'sine';
   osc.frequency.value = 1500;
   gain.gain.setValueAtTime(0.0001, time);
-  gain.gain.exponentialRampToValueAtTime(0.12, time + 0.004);
+  gain.gain.exponentialRampToValueAtTime(0.3, time + 0.004);
   gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
   osc.connect(gain);
   gain.connect(ctx.destination);
@@ -60,8 +61,8 @@ const scheduleNote = (ctx: AudioContext, freq: number, time: number, duration: n
   osc.type = 'triangle';
   osc.frequency.value = freq;
   gain.gain.setValueAtTime(0.0001, time);
-  gain.gain.exponentialRampToValueAtTime(0.16, time + 0.02);
-  gain.gain.setValueAtTime(0.16, time + Math.max(0.03, duration - 0.12));
+  gain.gain.exponentialRampToValueAtTime(0.4, time + 0.02);
+  gain.gain.setValueAtTime(0.4, time + Math.max(0.03, duration - 0.12));
   gain.gain.exponentialRampToValueAtTime(0.0001, time + duration);
   osc.connect(gain);
   gain.connect(ctx.destination);
@@ -102,6 +103,7 @@ export function useDemo() {
         window.AudioContext ||
         (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Ctx) return;
+      ensureAudiblePlayback();
       const ctx = new Ctx();
       ctxRef.current = ctx;
       if (ctx.state === 'suspended') ctx.resume().catch(() => undefined);

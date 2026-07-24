@@ -12,10 +12,35 @@ function dayIsCurrent(day: string): boolean {
   return Math.abs(submitted - now) <= 86400000;
 }
 
+// 30s previews streamed straight from Apple's CDN. lookup?id= is exact (the
+// trackId in songs.ts is pre-verified), so no fuzzy matching can go wrong at
+// runtime. Cached per instance; a failed lookup isn't cached so it retries.
+type Preview = { previewUrl: string | null; trackUrl: string | null };
+const previewCache = new Map<number, Preview>();
+
+async function lookupPreview(trackId: number): Promise<Preview> {
+  const cached = previewCache.get(trackId);
+  if (cached) return cached;
+  try {
+    const res = await fetch(`https://itunes.apple.com/lookup?id=${trackId}`);
+    if (!res.ok) throw new Error(`itunes lookup ${res.status}`);
+    const json = (await res.json()) as { results?: { previewUrl?: string; trackViewUrl?: string }[] };
+    const track = json.results?.[0];
+    const preview: Preview = {
+      previewUrl: track?.previewUrl ?? null,
+      trackUrl: track?.trackViewUrl ?? null,
+    };
+    previewCache.set(trackId, preview);
+    return preview;
+  } catch {
+    return { previewUrl: null, trackUrl: null };
+  }
+}
+
 /**
- * Today's challenge: title and artist only. The BPM (the answer) is never
- * returned here — it comes back with a scored run. Only the current day
- * window is served, so the future rotation can't be scraped.
+ * Today's challenge: title, artist and song-clip preview only. The BPM (the
+ * answer) is never returned here — it comes back with a scored run. Only the
+ * current day window is served, so the future rotation can't be scraped.
  */
 export async function daily(req: HttpRequest): Promise<HttpResponseInit> {
   const day = req.query.get('day') ?? '';
@@ -27,10 +52,11 @@ export async function daily(req: HttpRequest): Promise<HttpResponseInit> {
   }
   const number = dailyNumber(day);
   const song = songForDay(number);
+  const { previewUrl, trackUrl } = await lookupPreview(song.trackId);
   return {
     status: 200,
     headers: { 'Cache-Control': 'public, max-age=300' },
-    jsonBody: { day, number, title: song.title, artist: song.artist },
+    jsonBody: { day, number, title: song.title, artist: song.artist, previewUrl, trackUrl },
   };
 }
 

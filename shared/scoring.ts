@@ -3,10 +3,14 @@
 // recomputes every submitted score with these exact functions, so keeping them
 // in one place is what makes client and server scores provably identical.
 
-export type Song = { title: string; artist: string; bpm: number };
+/** trackId = the verified iTunes track whose 30s preview (and BPM) this entry represents. */
+export type Song = { title: string; artist: string; bpm: number; trackId: number };
 
 /** Valid intervals needed to finish a challenge run. */
 export const CHALLENGE_POINTS = 16;
+
+/** Points deducted when the player listened to the song clip before the run. */
+export const CLIP_PENALTY = 10;
 
 // ---------- day math (all in local time, like Wordle) ----------
 

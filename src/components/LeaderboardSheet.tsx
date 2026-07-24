@@ -52,8 +52,8 @@ const LeaderboardSheet = ({ todayKey, day, todayResult, onClose }: Props) => {
   };
 
   return (
-    <div className="overlay overlay-center" onClick={onClose} data-no-tap>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+    <div className="overlay overlay-center" data-no-tap>
+      <div className="sheet">
         <div className="sheet-header">
           <h2>🏆 Leaderboard</h2>
           <button className="icon-btn" onClick={onClose} aria-label="Close">

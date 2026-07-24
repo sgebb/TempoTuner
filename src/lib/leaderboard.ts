@@ -44,7 +44,16 @@ export async function fetchLeaderboard(day: string): Promise<LeaderboardData> {
   return res.json();
 }
 
-export type DailyInfo = { day: string; number: number; title: string; artist: string };
+export type DailyInfo = {
+  day: string;
+  number: number;
+  title: string;
+  artist: string;
+  /** 30s Apple Music preview clip (null if the lookup failed) */
+  previewUrl: string | null;
+  /** Apple Music page for the track — attribution link next to the preview */
+  trackUrl: string | null;
+};
 
 export type RunResult = {
   stored: boolean;
@@ -52,6 +61,8 @@ export type RunResult = {
   guess: number;
   octave: 'straight' | 'half' | 'double';
   wobble: number;
+  /** points deducted for listening to the clip before the run */
+  clipPenalty: number;
   actualBpm: number;
   rankToday: number;
   playersToday: number;
@@ -69,12 +80,12 @@ export async function fetchDaily(day: string): Promise<DailyInfo> {
  * score and reveals the actual BPM; the run only lands on the leaderboard if
  * a nickname is included (i.e. the user has joined).
  */
-export async function submitRun(day: string, bpms: number[]): Promise<RunResult> {
+export async function submitRun(day: string, bpms: number[], heardClip = false): Promise<RunResult> {
   const nickname = getNickname();
   const res = await fetch(`${API_BASE}/score`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ uuid: getUuid(), nickname: nickname ?? undefined, day, bpms }),
+    body: JSON.stringify({ uuid: getUuid(), nickname: nickname ?? undefined, day, bpms, heardClip }),
   });
   if (!res.ok) throw new Error(`score submit failed: ${res.status}`);
   const result: RunResult = await res.json();
@@ -88,10 +99,10 @@ export async function submitRun(day: string, bpms: number[]): Promise<RunResult>
  */
 export async function maybeSubmitToday(
   day: string,
-  result: { guess: number | null; bpms?: number[] } | undefined
+  result: { guess: number | null; bpms?: number[]; clip?: number } | undefined
 ): Promise<void> {
   if (!apiConfigured() || !getNickname()) return;
   if (!result || result.guess === null || !result.bpms?.length) return;
   if (localStorage.getItem(SUBMITTED_KEY) === day) return;
-  await submitRun(day, result.bpms);
+  await submitRun(day, result.bpms, !!result.clip);
 }

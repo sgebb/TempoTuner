@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { ensureAudiblePlayback } from '../lib/audio';
 
 /** Plain metronome: clicks at the given tempo until stopped. */
 const LOOKAHEAD_S = 0.12;
@@ -25,6 +26,7 @@ export function useMetronome() {
         window.AudioContext ||
         (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
       if (!Ctx) return;
+      ensureAudiblePlayback();
       if (!ctxRef.current || ctxRef.current.state === 'closed') ctxRef.current = new Ctx();
       const ctx = ctxRef.current;
       if (ctx.state === 'suspended') ctx.resume().catch(() => undefined);
@@ -39,7 +41,7 @@ export function useMetronome() {
         osc.type = 'sine';
         osc.frequency.value = 1000;
         gain.gain.setValueAtTime(0.0001, time);
-        gain.gain.exponentialRampToValueAtTime(0.25, time + 0.004);
+        gain.gain.exponentialRampToValueAtTime(0.6, time + 0.004);
         gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.06);
         osc.connect(gain);
         gain.connect(ctx.destination);

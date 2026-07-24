@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import {
+  CLIP_PENALTY,
   DailyResults,
   Octave,
   computeStreak,
@@ -8,7 +9,8 @@ import {
   wobblePenalty,
 } from '../lib/daily';
 import { renderDailyShareImage, shareOrDownload } from '../lib/shareImage';
-import { getNickname } from '../lib/leaderboard';
+import { apiConfigured, fetchDaily, getNickname } from '../lib/leaderboard';
+import { playPreview, stopPreview } from '../lib/preview';
 
 export type RunReveal = {
   title: string;
@@ -20,6 +22,8 @@ export type RunReveal = {
   octave: Octave | null;
   /** consistency points deducted from the accuracy score (0 = steady run) */
   wobble: number;
+  /** points deducted for listening to the clip before the run */
+  clipPenalty?: number;
   practice: boolean;
   rankToday?: number;
   playersToday?: number;
@@ -101,8 +105,36 @@ const DailySheet = ({
   const [busy, setBusy] = useState(false);
   const [startBusy, setStartBusy] = useState(false);
   const [startError, setStartError] = useState(false);
+  // Preview info is fetched lazily on the first "hear the real thing" tap —
+  // a reveal re-shown from storage never called fetchDaily.
+  const [preview, setPreview] = useState<{ url: string | null; trackUrl: string | null } | null>(
+    null
+  );
+  const [previewPlaying, setPreviewPlaying] = useState(false);
   const stored = results[todayKey];
   const streak = computeStreak(results, todayKey);
+
+  useEffect(() => stopPreview, []);
+
+  const hearIt = async () => {
+    if (previewPlaying) {
+      stopPreview();
+      return;
+    }
+    let p = preview;
+    if (!p) {
+      try {
+        const info = await fetchDaily(todayKey);
+        p = { url: info.previewUrl, trackUrl: info.trackUrl };
+      } catch {
+        p = { url: null, trackUrl: null };
+      }
+      setPreview(p);
+    }
+    if (!p.url) return;
+    setPreviewPlaying(true);
+    playPreview(p.url, { onDone: () => setPreviewPlaying(false) });
+  };
 
   // A finished run takes priority; otherwise a stored score is re-shown as a reveal.
   const shown: RunReveal | null =
@@ -116,6 +148,7 @@ const DailySheet = ({
           score: stored.score,
           octave: stored.actual != null ? scoreGuess(stored.guess, stored.actual).octave : null,
           wobble: stored.bpms ? wobblePenalty(stored.bpms) : 0,
+          clipPenalty: stored.clip ?? 0,
           practice: false,
         }
       : null);
@@ -160,14 +193,16 @@ const DailySheet = ({
     }
   };
 
+  // No backdrop-click close: this sheet pops open right as the 16th tap lands,
+  // and the next rhythm tap would dismiss the reveal before it was ever seen.
   return (
-    <div className="overlay overlay-center" onClick={onClose} data-no-tap>
-      <div className="sheet" onClick={(e) => e.stopPropagation()}>
+    <div className="overlay overlay-center" data-no-tap>
+      <div className="sheet">
         <div className="sheet-header">
           <h2>🎵 Daily #{day}</h2>
           <span className="sheet-header-buttons">
-            <button className="icon-btn" onClick={onLeaderboard} aria-label="Leaderboard" title="Leaderboard">
-              🏆
+            <button className="chip lb-chip" onClick={onLeaderboard}>
+              🏆 leaderboard
             </button>
             <button className="icon-btn" onClick={onClose} aria-label="Close">
               ✕
@@ -214,9 +249,21 @@ const DailySheet = ({
               </span>
               {!shown.practice && shown.rankToday !== undefined && (
                 <span className="rank-note">
-                  {getNickname()
-                    ? `#${shown.rankToday} of ${shown.playersToday} today`
-                    : `you'd be #${shown.rankToday} of ${shown.playersToday} — join via 🏆`}
+                  {getNickname() ? (
+                    <>
+                      #{shown.rankToday} of {shown.playersToday} today —{' '}
+                      <button className="linklike" onClick={onLeaderboard}>
+                        see the leaderboard
+                      </button>
+                    </>
+                  ) : (
+                    <>
+                      you'd be #{shown.rankToday} of {shown.playersToday} today —{' '}
+                      <button className="linklike" onClick={onLeaderboard}>
+                        join the leaderboard
+                      </button>
+                    </>
+                  )}
                 </span>
               )}
               {octaveNote(shown.octave) && <span className="octave-note">{octaveNote(shown.octave)}</span>}
@@ -226,7 +273,35 @@ const DailySheet = ({
                   it is the rest!
                 </span>
               )}
+              {(shown.clipPenalty ?? 0) > 0 && (
+                <span className="wobble-note">
+                  −{shown.clipPenalty} for listening to the clip first 🔊
+                </span>
+              )}
             </div>
+            {apiConfigured() && (
+              <p className="sheet-hint preview-line">
+                <button
+                  className="linklike"
+                  onClick={hearIt}
+                  disabled={preview !== null && !preview.url}
+                >
+                  {previewPlaying
+                    ? '◼ stop'
+                    : preview && !preview.url
+                      ? 'preview unavailable'
+                      : '🔊 hear the real thing'}
+                </button>
+                {preview?.trackUrl && (
+                  <>
+                    {' · '}
+                    <a className="linklike" href={preview.trackUrl} target="_blank" rel="noreferrer">
+                      from Apple Music ↗
+                    </a>
+                  </>
+                )}
+              </p>
+            )}
             {!shown.practice && (
               <div className="daily-streak-row">
                 <span>🔥 {streak} day streak</span>
@@ -260,7 +335,8 @@ const DailySheet = ({
               Start to reveal today's song, then sing it in your head and tap the{' '}
               <strong>main beat</strong> — the steady pulse you'd clap along to, not every word —
               16 taps, no live numbers. Your first full run is your score of record; stopping
-              mid-run doesn't count. Unsure what to tap? Watch the demo first.
+              mid-run doesn't count. Unsure what to tap? Watch the demo first. Don't know the
+              song? You can play a 🔊 clip during the run — it costs {CLIP_PENALTY} points.
             </p>
             {startError && (
               <p className="sheet-hint start-error">
