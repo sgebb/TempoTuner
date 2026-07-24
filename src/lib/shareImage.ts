@@ -1,4 +1,4 @@
-import { METRONOME_BODY_PATH, METRONOME_NEEDLE_PATH } from '../components/icons';
+import { FORK_BALL, FORK_STROKE_PATHS, FORK_STROKE_WIDTH, FORK_TILT_DEG } from '../components/icons';
 import { Octave } from './daily';
 
 export type DailyShareData = {
@@ -19,17 +19,25 @@ export type DailyShareData = {
 const ACCENT = '#f5a623';
 
 /**
- * The app's metronome mark, filled from the same SVG path data the header
- * uses (1940×2560 y-flipped trace space). `size` is the rendered height.
+ * The app's tuning-fork mark, stroked from the same 64×64 SVG path data the
+ * header uses. `size` is the rendered height (the mark is square).
  */
 function drawLogo(ctx: CanvasRenderingContext2D, x: number, y: number, size: number) {
-  const s = size / 2560;
+  const s = size / 64;
   ctx.save();
-  ctx.translate(x, y + size);
-  ctx.scale(s, -s);
+  ctx.translate(x, y);
+  ctx.scale(s, s);
+  ctx.translate(32, 32);
+  ctx.rotate((FORK_TILT_DEG * Math.PI) / 180);
+  ctx.translate(-32, -32);
+  ctx.strokeStyle = ACCENT;
+  ctx.lineWidth = FORK_STROKE_WIDTH;
+  ctx.lineCap = 'round';
+  for (const d of FORK_STROKE_PATHS) ctx.stroke(new Path2D(d));
   ctx.fillStyle = ACCENT;
-  ctx.fill(new Path2D(METRONOME_BODY_PATH));
-  ctx.fill(new Path2D(METRONOME_NEEDLE_PATH));
+  ctx.beginPath();
+  ctx.arc(FORK_BALL.cx, FORK_BALL.cy, FORK_BALL.r, 0, Math.PI * 2);
+  ctx.fill();
   ctx.restore();
 }
 

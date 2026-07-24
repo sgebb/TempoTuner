@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Graph from './components/Graph';
-import { MetronomeMark, ResetArrow } from './components/icons';
+import { TuningForkMark, ResetArrow } from './components/icons';
 import HelpModal from './components/HelpModal';
 import TargetSheet from './components/TargetSheet';
 import DailyModal, { RunReveal } from './components/DailyModal';
@@ -385,7 +385,7 @@ const App = () => {
       <header className="topbar" data-no-tap>
         <h1 className="logo">
           <button className="logo-btn" onClick={goHome} aria-label="TempoTuner — home">
-            <MetronomeMark size={30} />
+            <TuningForkMark size={30} />
             TempoTuner
           </button>
         </h1>

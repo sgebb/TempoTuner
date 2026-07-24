@@ -11,13 +11,13 @@
   "categories": ["music", "education", "utilities"],
   "icons": [
     {
-      "src": "/favicon.svg",
+      "src": "/icon-tile.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "any"
     },
     {
-      "src": "/favicon.svg",
+      "src": "/icon-tile.svg",
       "sizes": "any",
       "type": "image/svg+xml",
       "purpose": "maskable"
