@@ -39,11 +39,10 @@ type Props = {
   runError: boolean;
   onRetryRun: () => void;
   onStartDaily: () => Promise<void>;
+  /** "Try again": the same blind run, score not submitted */
   onStartPractice: (title: string, artist: string, bpm: number) => void;
   onDemo: () => void;
   onLeaderboard: () => void;
-  /** free tapping at the song's BPM — with the real clip playing along if available */
-  onPracticeAt: (bpm: number, previewUrl: string | null) => void;
   onClose: () => void;
 };
 
@@ -96,21 +95,20 @@ const DailyModal = ({
   onStartPractice,
   onDemo,
   onLeaderboard,
-  onPracticeAt,
   onClose,
 }: Props) => {
   const [copied, setCopied] = useState(false);
   const [busy, setBusy] = useState(false);
   const [startBusy, setStartBusy] = useState(false);
   const [startError, setStartError] = useState(false);
-  // Preview info is fetched lazily on the first "hear the real thing" tap —
-  // a reveal re-shown from storage never called fetchDaily.
+  // Preview info is fetched lazily on the first "listen" tap — a reveal
+  // re-shown from storage never called fetchDaily.
   const [preview, setPreview] = useState<{ url: string | null; trackUrl: string | null } | null>(
     null
   );
+  // The song plays only inside this modal; the ref mirrors the state so the
+  // unmount cleanup can stop a clip that's still going.
   const [previewPlaying, setPreviewPlaying] = useState(false);
-  // Mirrors previewPlaying for the unmount cleanup: only stop playback THIS
-  // sheet started — never the tap-along song onPracticeAt just handed off.
   const playingRef = useRef(false);
   const stored = results[todayKey];
   const streak = computeStreak(results, todayKey);
@@ -135,13 +133,13 @@ const DailyModal = ({
     return p;
   };
 
-  const hearIt = async () => {
+  const toggleListen = async () => {
     if (previewPlaying) {
       stopPreview();
       return;
     }
     const p = await loadPreview();
-    if (!p.url) return;
+    if (!p.url) return; // the button re-renders as "preview unavailable"
     playingRef.current = true;
     setPreviewPlaying(true);
     playPreview(p.url, {
@@ -150,11 +148,6 @@ const DailyModal = ({
         setPreviewPlaying(false);
       },
     });
-  };
-
-  const practiceAlong = async (bpm: number) => {
-    const p = apiConfigured() ? await loadPreview() : null;
-    onPracticeAt(bpm, p?.url ?? null);
   };
 
   // A finished run takes priority; otherwise a stored score is re-shown as a reveal.
@@ -170,6 +163,8 @@ const DailyModal = ({
           octave: stored.actual != null ? scoreGuess(stored.guess, stored.actual).octave : null,
           wobble: stored.bpms ? wobblePenalty(stored.bpms) : 0,
           practice: false,
+          rankToday: stored.rankToday,
+          playersToday: stored.playersToday,
         }
       : null);
 
@@ -205,8 +200,11 @@ const DailyModal = ({
       });
       const outcome = await shareOrDownload(blob, text);
       if (outcome === 'downloaded') {
-        // no share sheet on this device — image downloaded, text to clipboard
+        // no share sheet and no clipboard — image downloaded, text to clipboard
         await navigator.clipboard.writeText(text).catch(() => undefined);
+      }
+      if (outcome !== 'shared') {
+        // desktop: the card is on the clipboard — say so
         setCopied(true);
         window.setTimeout(() => setCopied(false), 2000);
       }
@@ -222,14 +220,9 @@ const DailyModal = ({
       <div className="sheet">
         <div className="sheet-header">
           <h2>🎵 Daily #{day}</h2>
-          <span className="sheet-header-buttons">
-            <button className="chip lb-chip" onClick={onLeaderboard}>
-              🏆 leaderboard
-            </button>
-            <button className="icon-btn" onClick={onClose} aria-label="Close">
-              ✕
-            </button>
-          </span>
+          <button className="icon-btn" onClick={onClose} aria-label="Close">
+            ✕
+          </button>
         </div>
 
         {scoring ? (
@@ -296,29 +289,6 @@ const DailyModal = ({
                 </span>
               )}
             </div>
-            {apiConfigured() && (
-              <p className="sheet-hint preview-line">
-                <button
-                  className="linklike"
-                  onClick={hearIt}
-                  disabled={preview !== null && !preview.url}
-                >
-                  {previewPlaying
-                    ? '◼ stop'
-                    : preview && !preview.url
-                      ? 'preview unavailable'
-                      : '🔊 hear the real thing'}
-                </button>
-                {preview?.trackUrl && (
-                  <>
-                    {' · '}
-                    <a className="linklike" href={preview.trackUrl} target="_blank" rel="noreferrer">
-                      from Apple Music ↗
-                    </a>
-                  </>
-                )}
-              </p>
-            )}
             {!shown.practice && (
               <div className="daily-streak-row">
                 <span>🔥 {streak} day streak</span>
@@ -331,20 +301,42 @@ const DailyModal = ({
                   className="btn btn-ghost"
                   onClick={() => onStartPractice(shown.title, shown.artist, shown.actual!)}
                 >
-                  Play again
+                  Try again
                 </button>
               )}
-              {shown.actual !== null && (
-                <button className="btn btn-ghost" onClick={() => practiceAlong(shown.actual!)}>
-                  {apiConfigured() ? '🔊 ' : ''}Practice at {shown.actual}
-                </button>
-              )}
+              <button className="btn btn-ghost" onClick={onLeaderboard}>
+                🏆 Leaderboard
+              </button>
               {!shown.practice && (
                 <button className="btn btn-primary" onClick={share} disabled={busy}>
                   {busy ? 'Creating…' : copied ? 'Copied!' : 'Share'}
                 </button>
               )}
             </div>
+            {/* on its own line so toggling to "stop" never reflows the buttons */}
+            {apiConfigured() && (
+              <p className="sheet-hint preview-line">
+                <button
+                  className="linklike"
+                  onClick={toggleListen}
+                  disabled={preview !== null && !preview.url}
+                >
+                  {previewPlaying
+                    ? '◼ stop'
+                    : preview && !preview.url
+                      ? 'preview unavailable'
+                      : '🔊 listen to the original'}
+                </button>
+                {previewPlaying && preview?.trackUrl && (
+                  <>
+                    {' · '}
+                    <a className="linklike" href={preview.trackUrl} target="_blank" rel="noreferrer">
+                      from Apple Music ↗
+                    </a>
+                  </>
+                )}
+              </p>
+            )}
           </>
         ) : (
           <>

@@ -22,7 +22,7 @@ const HelpModal = ({ onClose }: Props) => (
       </div>
       <div className="help-body">
         <p>
-          <strong>Tap anywhere</strong> to the beat while you sing or play — the graph shows your
+          <strong>Tap anywhere</strong> to the beat while you sing or play. The graph shows your
           BPM and exactly where you rushed or dragged.
         </p>
         <p>
@@ -30,16 +30,16 @@ const HelpModal = ({ onClose }: Props) => (
           yourself and play it back to hear the moment your timing drifted.
         </p>
         <p>
-          <strong>Daily challenge 🎵</strong> — hit <em>🎵 daily</em> up top to tap a well-known
+          <strong>Daily challenge 🎵</strong>: Hit <em>🎵 daily</em> up top to tap a well-known
           song's beat from memory, get scored against its real BPM, build a streak and climb the 🏆
           leaderboard.
         </p>
         <p>
-          <strong>Install it</strong> — <em>Add to Home Screen</em> in your browser menu makes it a
+          <strong>Install it</strong>: <em>Add to Home Screen</em> in your browser menu makes it a
           full-screen app that works offline.
         </p>
         <p>
-          <strong>Privacy</strong> — taps and recordings never leave your device. The leaderboard
+          <strong>Privacy</strong>: Taps and recordings never leave your device. The leaderboard
           stores only your nickname and scores (no account); analytics only if you said yes to
           cookies.{' '}
           <button className="linklike" onClick={changeCookieChoice}>

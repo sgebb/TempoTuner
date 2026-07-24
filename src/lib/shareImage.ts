@@ -192,12 +192,20 @@ export async function renderDailyShareImage(data: DailyShareData): Promise<Blob>
   });
 }
 
-/** Returns how the blob left the device, so callers can offer a text fallback. */
-export async function shareOrDownload(blob: Blob, text: string): Promise<'shared' | 'downloaded'> {
+/** Returns how the blob left the device, so callers can adapt their feedback. */
+export async function shareOrDownload(
+  blob: Blob,
+  text: string
+): Promise<'shared' | 'copied' | 'downloaded'> {
   const file = new File([blob], 'tempotuner-daily.png', { type: 'image/png' });
+  // The OS share sheet is only useful on phones/tablets — on desktop (Windows
+  // especially) it opens a dialog nobody can do anything with, so desktops get
+  // the image copied to the clipboard instead: paste it anywhere.
+  const uaData = (navigator as { userAgentData?: { mobile?: boolean } }).userAgentData;
+  const isMobile = uaData?.mobile ?? /Android|iPhone|iPad|iPod/i.test(navigator.userAgent);
   // The link lives in `text` ONLY. Passing `url` as well double-posts it in
   // apps that keep both fields (WhatsApp does).
-  if (navigator.canShare?.({ files: [file] })) {
+  if (isMobile && navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({
         files: [file],
@@ -208,6 +216,19 @@ export async function shareOrDownload(blob: Blob, text: string): Promise<'shared
     } catch (err) {
       if ((err as DOMException)?.name === 'AbortError') return 'shared';
     }
+  }
+  try {
+    // One clipboard item, two flavours: image-accepting apps paste the card,
+    // plain-text fields paste the score line with the link.
+    await navigator.clipboard.write([
+      new ClipboardItem({
+        'image/png': blob,
+        'text/plain': new Blob([text], { type: 'text/plain' }),
+      }),
+    ]);
+    return 'copied';
+  } catch {
+    // clipboard blocked or unsupported — fall through to a plain download
   }
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');

@@ -22,6 +22,10 @@ export type DailyResult = {
   title?: string;
   artist?: string;
   actual?: number;
+  /** today's standing when the run was scored — so the re-opened reveal can
+   *  still say "you'd be #N of M today" and offer the leaderboard join */
+  rankToday?: number;
+  playersToday?: number;
 };
 
 export type DailyResults = Record<string, DailyResult>;

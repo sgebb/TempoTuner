@@ -125,6 +125,28 @@ body {
   transform: scale(0.92);
 }
 
+/* the daily challenge entrance — a playful callout in the topbar */
+.daily-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 36px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--accent);
+  background: var(--accent-soft);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 13.5px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.daily-btn:active {
+  transform: scale(0.95);
+}
+
 /* ---------- squiggly helper text ---------- */
 .squiggle {
   font-family: 'Caveat', 'Segoe Script', cursive;
@@ -177,18 +199,81 @@ body {
   color: var(--muted);
 }
 
-/* row of real buttons under the big number (target, stop song, daily actions…) */
-.bpm-actions {
-  margin-top: 10px;
+/* help/theme on the left, the big number in the middle, bullseye on the right */
+.bpm-row {
+  width: 100%;
   display: flex;
-  gap: 10px;
-  justify-content: center;
-  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
 }
 
-.bpm-actions .btn {
-  padding: 8px 16px;
-  font-size: 14px;
+.bpm-side {
+  flex: 1 1 0;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bpm-side-right {
+  justify-content: flex-end;
+}
+
+/* help/theme stack vertically so together they match the number's height */
+.bpm-stack {
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+}
+
+.bpm-mid {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+}
+
+/* the bullseye grows into a pill showing the number once a target is set */
+.target-btn {
+  width: auto;
+  min-width: 36px;
+  padding: 0 10px;
+  gap: 6px;
+  border-radius: 999px;
+}
+
+.target-btn.target-set {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.target-emoji {
+  font-size: 17px;
+  line-height: 1;
+}
+
+.target-val {
+  font-size: 13px;
+  font-weight: 800;
+  font-variant-numeric: tabular-nums;
+}
+
+/* squiggle in the gap under the bullseye, nudging towards it */
+.target-hint {
+  align-self: flex-end;
+  display: flex;
+  align-items: flex-start;
+  gap: 4px;
+  margin-right: 28px;
+  font-size: clamp(14px, 3.8vmin, 17px);
+  transform: rotate(-1.5deg);
+}
+
+.target-hint-arrow {
+  width: 24px;
+  height: 20px;
+  flex: 0 0 auto;
+  color: var(--accent);
 }
 
 .chip-x {
@@ -225,18 +310,6 @@ body {
   color: var(--accent);
 }
 
-/* the free space where the graph card would be — just a hand-written note */
-.challenge-note {
-  flex: 1 1 auto;
-  min-height: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  font-size: clamp(17px, 4.5vmin, 24px);
-  padding: 0 24px;
-  transform: rotate(-1deg);
-}
 
 .challenge-total {
   font-size: 0.38em;
@@ -306,41 +379,7 @@ body {
   position: relative;
 }
 
-/* the tool rail: metronome / record / play / reset live ON the graph's left edge */
-.graph-area.with-rail {
-  padding-left: 56px;
-}
-
-.graph-rail {
-  position: absolute;
-  top: 8px;
-  bottom: 8px;
-  left: 8px;
-  z-index: 5;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-
-.rail-btn {
-  width: 40px;
-  height: 40px;
-  font-size: 17px;
-}
-
-.rail-active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-}
-
-.rail-recording {
-  background: rgba(220, 38, 38, 0.12);
-  border-color: var(--bad);
-  color: var(--bad);
-  animation: blink 1.2s ease-in-out infinite;
-}
-
-/* reset: destructive, so parked top-right, away from the rail tools */
+/* reset: part of the graph, parked top-right */
 .graph-reset {
   position: absolute;
   top: 8px;
@@ -348,29 +387,6 @@ body {
   z-index: 5;
   width: 40px;
   height: 40px;
-}
-
-/* hand-written nudge floating next to the rail, arrow aimed at a button */
-.rail-hint {
-  position: absolute;
-  left: 58px;
-  z-index: 4;
-  display: flex;
-  align-items: flex-start;
-  gap: 5px;
-  max-width: min(60%, 240px);
-  font-size: clamp(14px, 3.8vmin, 17px);
-  line-height: 1.25;
-  transform: rotate(-1.5deg);
-  pointer-events: none;
-}
-
-.rail-hint-arrow {
-  width: 26px;
-  height: 18px;
-  flex: 0 0 auto;
-  margin-top: 3px;
-  color: var(--accent);
 }
 
 .graph-hint-label {
@@ -450,43 +466,48 @@ body {
   font-size: 17px;
 }
 
-/* ---------- bottom tab bar: practice ⇄ daily ---------- */
-.tab-bar {
+/* ---------- controls ---------- */
+/* breathing room between graph and buttons, used for hand-drawn nudges */
+.controls-hint {
+  min-height: 38px;
   display: flex;
-  gap: 8px;
-  margin-top: 6px;
+  align-items: flex-end;
+  font-size: clamp(15px, 4vmin, 19px);
+  padding: 2px 6px 0;
   cursor: default;
 }
 
-.tab {
-  position: relative;
-  flex: 1 1 0;
-  min-width: 0;
+.hint-inner {
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  align-items: flex-start;
+  gap: 6px;
+  transform: rotate(-1.5deg);
+}
+
+.hint-left {
+  margin-right: auto;
+}
+
+.hint-center {
+  margin: 0 auto;
+}
+
+.hint-right {
+  margin-left: auto;
+}
+
+.hint-arrow {
+  width: 20px;
+  height: 32px;
+  flex: 0 0 auto;
+  margin-top: 6px;
+  color: var(--accent);
+}
+
+.controls {
+  display: flex;
   gap: 8px;
-  padding: 12px 4px;
-  border-radius: 14px;
-  border: 1.5px solid var(--border);
-  background: var(--card);
-  color: var(--muted);
-  font-family: inherit;
-  font-size: 14px;
-  font-weight: 800;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: transform 0.1s ease, background 0.15s ease;
-}
-
-.tab:active {
-  transform: scale(0.97);
-}
-
-.tab-active {
-  background: var(--accent-soft);
-  border-color: var(--accent);
-  color: var(--fg);
+  cursor: default;
 }
 
 .btn {
@@ -628,11 +649,6 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-}
-
-.sheet-header-buttons {
-  display: inline-flex;
-  gap: 8px;
 }
 
 .sheet-header h2 {
@@ -902,11 +918,6 @@ body {
 }
 
 /* leaderboard sheet */
-.lb-chip {
-  font-size: 12.5px;
-  padding: 6px 12px;
-}
-
 .lb-join {
   display: flex;
   gap: 10px;
@@ -1084,7 +1095,7 @@ body {
   .bpm-big {
     font-size: clamp(56px, 16vmin, 96px);
   }
-  .tab {
-    padding: 9px 4px;
+  .controls-hint {
+    display: none;
   }
 }

@@ -58,7 +58,13 @@ export function scoreGuess(guess: number, target: number): { score: number; octa
       bestErr = err;
     }
   }
-  return { score: Math.max(0, Math.round(100 - bestErr * 400)), octave: best.octave };
+  return {
+    score: Math.max(0, Math.round(100 - bestErr * 400)),
+    // Only claim a half/double-time feel when the guess actually lands close
+    // to that octave (≤10% ≈ score 60+) — a wildly wrong guess is just wrong,
+    // not "felt in double time".
+    octave: bestErr <= 0.1 ? best.octave : 'straight',
+  };
 }
 
 /**
