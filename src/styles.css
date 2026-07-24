@@ -302,9 +302,9 @@ body {
   top: 8px;
   right: 8px;
   z-index: 5;
-  width: 32px;
-  height: 32px;
-  font-size: 15px;
+  width: 40px;
+  height: 40px;
+  font-size: 24px;
 }
 
 .graph-hint-label {
@@ -465,6 +465,12 @@ body {
   position: absolute;
   top: 7px;
   right: 9px;
+}
+
+/* the daily is the fun part — let it stand out from the tool buttons */
+.btn-daily {
+  background: var(--accent-soft);
+  border-color: var(--accent);
 }
 
 .btn-icon {

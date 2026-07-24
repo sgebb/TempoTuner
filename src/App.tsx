@@ -433,7 +433,7 @@ const App = () => {
                   </>
                 ) : (
                   <>
-                    <Bullseye /> set a target
+                    <Bullseye /> set target
                   </>
                 )}
               </button>
@@ -569,6 +569,11 @@ const App = () => {
           <span className="btn-icon">{metronome.isOn ? '◼' : '♪'}</span>
           {metronome.isOn ? 'stop' : 'metronome'}
         </button>
+        <button className="btn btn-daily" onClick={() => setDailyOpen(true)} title="Daily tempo challenge">
+          <span className="btn-icon">🎵</span>
+          daily #{day}
+          {!todayResult && <span className="pulse-dot btn-dot" aria-hidden="true" />}
+        </button>
         <button
           className={`btn ${recorder.status === 'recording' ? 'btn-recording' : ''}`}
           onClick={toggleRecord}
@@ -583,11 +588,6 @@ const App = () => {
             {recorder.status === 'playing' ? 'stop' : 'play'}
           </button>
         )}
-        <button className="btn" onClick={() => setDailyOpen(true)} title="Daily tempo challenge">
-          <span className="btn-icon">🎵</span>
-          daily #{day}
-          {!todayResult && <span className="pulse-dot btn-dot" aria-hidden="true" />}
-        </button>
       </nav>
       </>
       )}
