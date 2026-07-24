@@ -65,6 +65,8 @@ const App = () => {
   const [scoringRun, setScoringRun] = useState(false);
   const [runError, setRunError] = useState(false);
   const [clipPlaying, setClipPlaying] = useState(false);
+  // tap-along practice: the real clip plays at normal speed while taps stay live
+  const [songPlaying, setSongPlaying] = useState(false);
   const pendingRunRef = useRef<{ title: string; artist: string; bpms: number[] } | null>(null);
   const rippleId = useRef(0);
   const metronomePendingRef = useRef(false);
@@ -372,6 +374,8 @@ const App = () => {
         </div>
       ) : demo.running ? (
         <p className="squiggle tagline challenge-song">🎵 {DEMO_SONG.title} — demo</p>
+      ) : songPlaying ? (
+        <p className="squiggle tagline">🎵 tap along — how close can you track it?</p>
       ) : (
         <p className="squiggle tagline">sing something &amp; tap anywhere to the beat!</p>
       )}
@@ -446,6 +450,11 @@ const App = () => {
                   </>
                 )}
               </button>
+              {songPlaying && (
+                <button className="target-chip" onClick={() => stopPreview()}>
+                  ◼ stop song
+                </button>
+              )}
               <button className="target-chip daily-chip" onClick={() => setDailyOpen(true)}>
                 🎵 daily #{day}
                 {todayResult ? (
@@ -634,10 +643,15 @@ const App = () => {
           onStartPractice={startPractice}
           onDemo={startDemo}
           onLeaderboard={() => setLbOpen(true)}
-          onPracticeAt={(v) => {
+          onPracticeAt={(v, previewUrl) => {
             setTargetBpm(v);
             dismissDaily();
             setRunReveal(null);
+            setTaps([]);
+            if (previewUrl) {
+              setSongPlaying(true);
+              playPreview(previewUrl, { onDone: () => setSongPlaying(false) });
+            }
           }}
           onClose={() => {
             dismissDaily();

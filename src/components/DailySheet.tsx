@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   DailyResults,
   Octave,
@@ -42,7 +42,8 @@ type Props = {
   onStartPractice: (title: string, artist: string, bpm: number) => void;
   onDemo: () => void;
   onLeaderboard: () => void;
-  onPracticeAt: (bpm: number) => void;
+  /** free tapping at the song's BPM — with the real clip playing along if available */
+  onPracticeAt: (bpm: number, previewUrl: string | null) => void;
   onClose: () => void;
 };
 
@@ -108,29 +109,52 @@ const DailySheet = ({
     null
   );
   const [previewPlaying, setPreviewPlaying] = useState(false);
+  // Mirrors previewPlaying for the unmount cleanup: only stop playback THIS
+  // sheet started — never the tap-along song onPracticeAt just handed off.
+  const playingRef = useRef(false);
   const stored = results[todayKey];
   const streak = computeStreak(results, todayKey);
 
-  useEffect(() => stopPreview, []);
+  useEffect(
+    () => () => {
+      if (playingRef.current) stopPreview();
+    },
+    []
+  );
+
+  const loadPreview = async () => {
+    if (preview) return preview;
+    let p: { url: string | null; trackUrl: string | null };
+    try {
+      const info = await fetchDaily(todayKey);
+      p = { url: info.previewUrl, trackUrl: info.trackUrl };
+    } catch {
+      p = { url: null, trackUrl: null };
+    }
+    setPreview(p);
+    return p;
+  };
 
   const hearIt = async () => {
     if (previewPlaying) {
       stopPreview();
       return;
     }
-    let p = preview;
-    if (!p) {
-      try {
-        const info = await fetchDaily(todayKey);
-        p = { url: info.previewUrl, trackUrl: info.trackUrl };
-      } catch {
-        p = { url: null, trackUrl: null };
-      }
-      setPreview(p);
-    }
+    const p = await loadPreview();
     if (!p.url) return;
+    playingRef.current = true;
     setPreviewPlaying(true);
-    playPreview(p.url, { onDone: () => setPreviewPlaying(false) });
+    playPreview(p.url, {
+      onDone: () => {
+        playingRef.current = false;
+        setPreviewPlaying(false);
+      },
+    });
+  };
+
+  const practiceAlong = async (bpm: number) => {
+    const p = apiConfigured() ? await loadPreview() : null;
+    onPracticeAt(bpm, p?.url ?? null);
   };
 
   // A finished run takes priority; otherwise a stored score is re-shown as a reveal.
@@ -309,8 +333,8 @@ const DailySheet = ({
                 </button>
               )}
               {shown.actual !== null && (
-                <button className="btn btn-ghost" onClick={() => onPracticeAt(shown.actual!)}>
-                  Practice at {shown.actual}
+                <button className="btn btn-ghost" onClick={() => practiceAlong(shown.actual!)}>
+                  {apiConfigured() ? '🔊 ' : ''}Practice at {shown.actual}
                 </button>
               )}
               {!shown.practice && (
