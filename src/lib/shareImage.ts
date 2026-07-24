@@ -195,14 +195,13 @@ export async function renderDailyShareImage(data: DailyShareData): Promise<Blob>
 /** Returns how the blob left the device, so callers can offer a text fallback. */
 export async function shareOrDownload(blob: Blob, text: string): Promise<'shared' | 'downloaded'> {
   const file = new File([blob], 'tempotuner-daily.png', { type: 'image/png' });
-  // The link goes into `text` because most apps (WhatsApp included) drop the
-  // `url` field when files are attached.
+  // The link lives in `text` ONLY. Passing `url` as well double-posts it in
+  // apps that keep both fields (WhatsApp does).
   if (navigator.canShare?.({ files: [file] })) {
     try {
       await navigator.share({
         files: [file],
         text,
-        url: 'https://tempotuner.app',
         title: 'TempoTuner daily',
       });
       return 'shared';

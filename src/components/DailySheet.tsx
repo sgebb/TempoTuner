@@ -188,7 +188,9 @@ const DailySheet = ({
     if (!shown || busy) return;
     setBusy(true);
     try {
-      const text = `TempoTuner Daily #${day} · ${shown.title} — ${shown.artist} · 🎯 ${shown.score}/100 · 🔥${streak}\nhttps://tempotuner.app`;
+      // No song name: keeps the text short and doesn't spoil the day's song
+      // for whoever receives it (the image still shows it).
+      const text = `TempoTuner Daily #${day} · 🎯 ${shown.score}/100 · 🔥${streak}\nhttps://tempotuner.app`;
       const blob = await renderDailyShareImage({
         day,
         title: shown.title,
