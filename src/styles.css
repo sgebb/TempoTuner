@@ -188,6 +188,18 @@ body {
   opacity: 1;
 }
 
+/* big BPM number with the target chip sitting to its right */
+.bpm-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.bpm-row .target-chip {
+  margin-top: 0;
+}
+
 .chip-row {
   margin-top: 8px;
   display: flex;
@@ -198,14 +210,6 @@ body {
 
 .chip-row .target-chip {
   margin-top: 0;
-}
-
-.daily-chip {
-  border-style: solid;
-}
-
-.daily-chip-score {
-  color: var(--accent);
 }
 
 .pulse-dot {
@@ -266,8 +270,10 @@ body {
 
 /* the clip plays at a deliberately wrong tempo — say so LOUDLY */
 .clip-wrong {
-  font-size: clamp(34px, 10vmin, 60px);
+  font-size: clamp(34px, 10vmin, 52px);
+  font-weight: 800;
   color: var(--warn);
+  text-align: center;
   transform: rotate(-2deg);
   animation: pop 0.25s ease-out, blink 1.6s ease-in-out infinite;
 }
@@ -289,6 +295,16 @@ body {
   background: var(--card);
   padding: 6px 6px 0;
   position: relative;
+}
+
+.graph-reset {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 5;
+  width: 32px;
+  height: 32px;
+  font-size: 15px;
 }
 
 .graph-hint-label {
@@ -417,6 +433,7 @@ body {
 }
 
 .btn {
+  position: relative;
   flex: 1 1 0;
   min-width: 0;
   display: flex;
@@ -442,6 +459,12 @@ body {
 .btn:disabled {
   opacity: 0.35;
   cursor: not-allowed;
+}
+
+.btn-dot {
+  position: absolute;
+  top: 7px;
+  right: 9px;
 }
 
 .btn-icon {
@@ -572,6 +595,13 @@ body {
 .sheet-hint {
   font-size: 13px;
   color: var(--muted);
+}
+
+/* the details nobody has to read — tucked under the action buttons */
+.sheet-fineprint {
+  font-size: 11.5px;
+  text-align: center;
+  opacity: 0.85;
 }
 
 .sheet-actions {

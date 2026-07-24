@@ -226,15 +226,12 @@ const App = () => {
     stopPreview();
   };
 
-  // "Don't know the song?" — play the clip, tempo-scrambled so it never
-  // leaks the answer (that's why it's free). Listening restarts the run:
-  // the taps so far are cleared, and tapping pauses while it plays.
-  const toggleClip = () => {
-    if (clipPlaying) {
-      stopPreview();
-      return;
-    }
-    if (!challenge?.previewUrl) return;
+  // "Don't know the song?" — the clip plays inside a modal, tempo-scrambled
+  // so it never leaks the answer (that's why it's free). Listening restarts
+  // the run: the taps so far are cleared. The modal closes itself when the
+  // clip ends; closing it early stops the clip (stopPreview fires onDone).
+  const openClip = () => {
+    if (!challenge?.previewUrl || clipPlaying) return;
     setTaps([]);
     setClipPlaying(true);
     playPreview(challenge.previewUrl, { scramble: true, onDone: () => setClipPlaying(false) });
@@ -383,27 +380,18 @@ const App = () => {
       <main className="bpm-zone">
         {challenge ? (
           <>
-            {clipPlaying ? (
-              <>
-                <div className="bpm-big clip-wrong">wrong speed!</div>
-                <div className="bpm-label">on purpose — don't tap along</div>
-              </>
-            ) : (
-              <>
-                <div className="bpm-big challenge-progress" key={points.length}>
-                  {Math.min(points.length, CHALLENGE_POINTS)}
-                  <span className="challenge-total">/{CHALLENGE_POINTS}</span>
-                </div>
-                <div className="bpm-label">taps</div>
-              </>
-            )}
+            <div className="bpm-big challenge-progress" key={points.length}>
+              {Math.min(points.length, CHALLENGE_POINTS)}
+              <span className="challenge-total">/{CHALLENGE_POINTS}</span>
+            </div>
+            <div className="bpm-label">taps</div>
             <div className="chip-row" data-no-tap>
               <button className="target-chip" onClick={cancelChallenge}>
                 ✕ stop challenge
               </button>
               {!challenge.practice && challenge.previewUrl && (
-                <button className="target-chip" onClick={toggleClip}>
-                  {clipPlaying ? '◼ stop clip' : '🔊 remind me how it goes'}
+                <button className="target-chip" onClick={openClip}>
+                  🔊 remind me how it goes
                 </button>
               )}
             </div>
@@ -422,11 +410,10 @@ const App = () => {
           </>
         ) : (
           <>
-            <div className={`bpm-big ${bpm !== null ? '' : 'bpm-empty'}`} style={{ color: bpmColor }} key={taps.length}>
-              {bpm ?? '· ·'}
-            </div>
-            <div className="bpm-label">BPM</div>
-            <div className="chip-row" data-no-tap>
+            <div className="bpm-row" data-no-tap>
+              <div className={`bpm-big ${bpm !== null ? '' : 'bpm-empty'}`} style={{ color: bpmColor }} key={taps.length}>
+                {bpm ?? '· ·'}
+              </div>
               <button className="target-chip" onClick={() => setTargetOpen(true)}>
                 {targetBpm !== null ? (
                   <>
@@ -450,22 +437,13 @@ const App = () => {
                   </>
                 )}
               </button>
-              {songPlaying && (
-                <button className="target-chip" onClick={() => stopPreview()}>
-                  ◼ stop song
-                </button>
-              )}
-              <button className="target-chip daily-chip" onClick={() => setDailyOpen(true)}>
-                🎵 daily #{day}
-                {todayResult ? (
-                  <span className="daily-chip-score">
-                    {todayResult.skipped ? 'skipped' : `${todayResult.score}/100`}
-                  </span>
-                ) : (
-                  <span className="pulse-dot" aria-hidden="true" />
-                )}
-              </button>
             </div>
+            <div className="bpm-label">BPM</div>
+            {songPlaying && (
+              <button className="target-chip" data-no-tap onClick={() => stopPreview()}>
+                ◼ stop song
+              </button>
+            )}
           </>
         )}
       </main>
@@ -474,19 +452,9 @@ const App = () => {
         {challenge ? (
           <div className="graph-empty squiggle">
             <div>
-              {clipPlaying ? (
-                <>
-                  the clip's tempo is scrambled — hearing the song is free,
-                  <br />
-                  finding its real beat is still on you! (taps pause meanwhile)
-                </>
-              ) : (
-                <>
-                  eyes off the screen — trust your inner clock!
-                  <br />
-                  numbers show up when you're done
-                </>
-              )}
+              eyes off the screen — trust your inner clock!
+              <br />
+              numbers show up when you're done
             </div>
           </div>
         ) : demo.running ? (
@@ -499,6 +467,17 @@ const App = () => {
           </div>
         ) : (
           <>
+        {(hasSession || recorder.hasRecording) && (
+          <button
+            className="icon-btn graph-reset"
+            data-no-tap
+            onClick={reset}
+            title="Clear taps and recording"
+            aria-label="Reset"
+          >
+            ↻
+          </button>
+        )}
         {points.length === 0 && recorder.volume.length === 0 ? (
           <div className="graph-empty squiggle">
             <div>
@@ -604,14 +583,10 @@ const App = () => {
             {recorder.status === 'playing' ? 'stop' : 'play'}
           </button>
         )}
-        <button
-          className="btn"
-          onClick={reset}
-          disabled={!hasSession && !recorder.hasRecording}
-          title="Clear taps and recording"
-        >
-          <span className="btn-icon">↻</span>
-          reset
+        <button className="btn" onClick={() => setDailyOpen(true)} title="Daily tempo challenge">
+          <span className="btn-icon">🎵</span>
+          daily #{day}
+          {!todayResult && <span className="pulse-dot btn-dot" aria-hidden="true" />}
         </button>
       </nav>
       </>
@@ -628,6 +603,28 @@ const App = () => {
       ))}
 
       <ConsentBanner />
+      {clipPlaying && challenge && (
+        <div className="overlay overlay-center" data-no-tap>
+          <div className="sheet clip-sheet">
+            <div className="sheet-header">
+              <h2>🔊 {challenge.title}</h2>
+              <button className="icon-btn" onClick={() => stopPreview()} aria-label="Close">
+                ✕
+              </button>
+            </div>
+            <div className="clip-wrong">wrong speed!</div>
+            <p className="sheet-hint">
+              The pitch is real but the tempo is scrambled on purpose — hear how the song goes,
+              then find its real beat yourself. Your taps restart when you close this.
+            </p>
+            <div className="sheet-actions">
+              <button className="btn btn-primary" onClick={() => stopPreview()}>
+                Done — let me tap
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
       {dailyOpen && (
         <DailySheet

@@ -347,12 +347,7 @@ const DailySheet = ({
         ) : (
           <>
             <p className="sheet-hint">
-              Start to reveal today's song, then sing it in your head and tap the{' '}
-              <strong>main beat</strong> — the steady pulse you'd clap along to, not every word —
-              16 taps, no live numbers. Your first full run is your score of record; stopping
-              mid-run doesn't count. Unsure what to tap? Watch the demo first. Don't know the
-              song? Play a 🔊 clip during the run — it's tempo-scrambled, so finding the real
-              beat is still all you.
+              Sing today's song in your head and tap its beat from memory — 16 taps.
             </p>
             {startError && (
               <p className="sheet-hint start-error">
@@ -367,6 +362,10 @@ const DailySheet = ({
                 {startBusy ? 'Starting…' : 'Start'}
               </button>
             </div>
+            <p className="sheet-hint sheet-fineprint">
+              tap the steady pulse you'd clap along to, not every word · your first full run
+              counts · don't know the song? play a 🔊 clip mid-run
+            </p>
           </>
         )}
       </div>
