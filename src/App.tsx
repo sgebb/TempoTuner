@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import Graph from './components/Graph';
-import { Bullseye, MetronomeMark } from './components/icons';
+import { Bullseye, MetronomeMark, ResetArrow } from './components/icons';
 import HelpModal from './components/HelpModal';
 import TargetSheet from './components/TargetSheet';
-import DailySheet, { RunReveal } from './components/DailySheet';
+import DailyModal, { RunReveal } from './components/DailyModal';
 import ConsentBanner from './components/ConsentBanner';
 import { useMetronome } from './hooks/useMetronome';
 import { useRecorder } from './hooks/useRecorder';
@@ -19,7 +19,7 @@ import {
   scoreRun,
 } from './lib/daily';
 import { playPreview, stopPreview } from './lib/preview';
-import { fetchDaily, submitRun } from './lib/leaderboard';
+import { apiConfigured, fetchDaily, submitRun } from './lib/leaderboard';
 import LeaderboardSheet from './components/LeaderboardSheet';
 
 type Ripple = { id: number; x: number; y: number };
@@ -45,9 +45,14 @@ const App = () => {
   const [helpOpen, setHelpOpen] = useState(false);
   const [targetOpen, setTargetOpen] = useState(false);
   const [lbOpen, setLbOpen] = useState(false);
-  // The daily challenge greets you (Wordle-style) until played — but only once
-  // per day, so dismissing it leaves just the pulsing chip as a nudge.
-  const [dailyOpen, setDailyOpen] = useState(() => {
+  // Practice and daily are the two permanent tabs at the bottom. The daily tab
+  // shows the same tap screen, just blind (no BPM numbers until the reveal).
+  const [mode, setMode] = useState<'practice' | 'daily'>('practice');
+  // The daily's intro/result modal, shown over the daily tab's blind screen.
+  const [dailyModalOpen, setDailyModalOpen] = useState(false);
+  // The daily nudges you (Wordle-style) until played — but only once per day,
+  // so dismissing it leaves just the pulsing tab dot as a reminder.
+  const [nudgeOpen, setNudgeOpen] = useState(() => {
     const key = localDateKey();
     return !loadDailyResults()[key] && localStorage.getItem('tt-daily-prompted') !== key;
   });
@@ -68,6 +73,9 @@ const App = () => {
   // tap-along practice: the real clip plays at normal speed while taps stay live
   const [songPlaying, setSongPlaying] = useState(false);
   const pendingRunRef = useRef<{ title: string; artist: string; bpms: number[] } | null>(null);
+  // today's preview clip url, fetched lazily the first time the rail's play
+  // button is pressed after the daily is done
+  const dailyPreviewRef = useRef<{ url: string | null } | null>(null);
   const rippleId = useRef(0);
   const metronomePendingRef = useRef(false);
   const activeTapRef = useRef<{
@@ -84,11 +92,16 @@ const App = () => {
 
   const points = useMemo(() => tapsToPoints(taps), [taps]);
   const bpm = useMemo(() => currentBpm(points), [points]);
-  const stats = useMemo(() => computeStats(points, targetBpm), [points, targetBpm]);
 
   const todayKey = localDateKey();
   const day = dailyNumber(todayKey);
   const todayResult = dailyResults[todayKey];
+
+  const daily = mode === 'daily';
+  // In the daily's practice part the song of the day IS the target; the
+  // practice tab uses the user's own target BPM.
+  const effectiveTarget = daily ? (todayResult?.actual ?? null) : targetBpm;
+  const stats = useMemo(() => computeStats(points, effectiveTarget), [points, effectiveTarget]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
@@ -170,6 +183,9 @@ const App = () => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== 'Space') return;
       if (demo.running || clipPlaying) return;
+      // a rhythm space press right after the 16th tap must not land as a
+      // stray tap behind the modal that just opened
+      if (dailyModalOpen || nudgeOpen) return;
       const target = e.target as Element;
       if (target.closest('button, input, textarea, [data-no-tap]')) return;
       e.preventDefault();
@@ -177,7 +193,7 @@ const App = () => {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [registerTap, demo.running, clipPlaying]);
+  }, [registerTap, demo.running, clipPlaying, dailyModalOpen, nudgeOpen]);
 
   const reset = () => {
     setTaps([]);
@@ -187,15 +203,73 @@ const App = () => {
     stopPreview();
   };
 
-  const dismissDaily = () => {
+  const dismissNudge = () => {
     localStorage.setItem('tt-daily-prompted', todayKey);
-    setDailyOpen(false);
+    setNudgeOpen(false);
+  };
+
+  const cancelChallenge = () => {
+    setChallenge(null);
+    setTaps([]);
+    stopPreview();
+    setDailyModalOpen(true); // back to the daily's home
+  };
+
+  const goDaily = () => {
+    dismissNudge();
+    setMode('daily');
+    setDailyModalOpen(true);
+  };
+
+  const goPractice = () => {
+    if (challenge) {
+      // leaving the daily tab mid-run abandons the run (same as stop challenge)
+      setChallenge(null);
+      setTaps([]);
+    }
+    if (demo.running) demo.stop();
+    stopPreview(); // the song of the day stays in the daily
+    setDailyModalOpen(false);
+    setMode('practice');
+  };
+
+  // The daily tab: switches over (opening the modal), or re-opens the modal
+  // when you're already there. A no-op mid-run — "stop challenge" is explicit.
+  const openDailyTab = () => {
+    if (mode !== 'daily') {
+      goDaily();
+    } else if (demo.running) {
+      demo.stop();
+      setDailyModalOpen(true);
+    } else if (!challenge) {
+      setDailyModalOpen(true);
+    }
+  };
+
+  // Logo click = "take me home": leave whatever is running or open; if already
+  // on a bare practice screen, refresh it (clear taps & recording).
+  const goHome = () => {
+    const somethingToLeave =
+      challenge !== null || demo.running || mode === 'daily' || helpOpen || targetOpen || lbOpen || nudgeOpen;
+    if (challenge) {
+      setChallenge(null);
+      setTaps([]);
+      stopPreview();
+    }
+    if (demo.running) demo.stop();
+    setHelpOpen(false);
+    setTargetOpen(false);
+    setLbOpen(false);
+    setDailyModalOpen(false);
+    if (nudgeOpen) dismissNudge();
+    setMode('practice');
+    if (!somethingToLeave) reset();
   };
 
   // The real daily: ask the server what today's song is (title/artist only —
   // the BPM never reaches the client before the run is scored).
   const startDaily = async () => {
-    const info = await fetchDaily(todayKey); // throws → DailySheet shows the error
+    const info = await fetchDaily(todayKey); // throws → DailyModal shows the error
     reset();
     setRunReveal(null);
     setRunError(false);
@@ -207,7 +281,7 @@ const App = () => {
       practice: false,
       previewUrl: info.previewUrl ?? null,
     });
-    dismissDaily();
+    setDailyModalOpen(false);
   };
 
   // Practice replays a song whose BPM a scored run already revealed.
@@ -217,13 +291,7 @@ const App = () => {
     setRunError(false);
     pendingRunRef.current = null;
     setChallenge({ title, artist, bpm, practice: true, previewUrl: null });
-    dismissDaily();
-  };
-
-  const cancelChallenge = () => {
-    setChallenge(null);
-    setTaps([]);
-    stopPreview();
+    setDailyModalOpen(false);
   };
 
   // "Don't know the song?" — the clip plays inside a modal, tempo-scrambled
@@ -237,17 +305,40 @@ const App = () => {
     playPreview(challenge.previewUrl, { scramble: true, onDone: () => setClipPlaying(false) });
   };
 
-  // The demo returns you to the daily sheet when it ends (or is stopped).
+  // The rail's play button once the daily is done: the song of the day at
+  // normal speed, taps stay live — tap along and watch the BPM.
+  const toggleDailySong = async () => {
+    if (songPlaying) {
+      stopPreview();
+      return;
+    }
+    let p = dailyPreviewRef.current;
+    if (!p) {
+      try {
+        const info = await fetchDaily(todayKey);
+        p = { url: info.previewUrl ?? null };
+      } catch {
+        p = null; // fetch failed — leave unset so the next press retries
+      }
+      dailyPreviewRef.current = p;
+    }
+    if (!p?.url) return;
+    setSongPlaying(true);
+    playPreview(p.url, { onDone: () => setSongPlaying(false) });
+  };
+
+  // The demo runs on the tap screen; when it ends (or is stopped) the daily
+  // modal comes back.
   const startDemo = () => {
     reset();
     setRunReveal(null);
-    dismissDaily();
-    demo.start(() => setDailyOpen(true));
+    setDailyModalOpen(false);
+    demo.start(() => setDailyModalOpen(true));
   };
 
   const stopDemo = () => {
     demo.stop();
-    setDailyOpen(true);
+    setDailyModalOpen(true);
   };
 
   // Send the pending real run to the server for scoring; the reveal (and the
@@ -304,7 +395,7 @@ const App = () => {
     const bpms = points.map((p) => Math.round(p.bpm));
     const { title, artist, bpm, practice } = challenge;
     setChallenge(null);
-    setDailyOpen(true);
+    setDailyModalOpen(true); // the reveal shows in the daily modal
     stopPreview();
     if (practice && bpm !== null) {
       const { guess, octave, wobble, score } = scoreRun(bpms, bpm);
@@ -335,7 +426,18 @@ const App = () => {
   };
 
   const hasSession = taps.length > 0;
-  const bpmColor = bpm !== null ? accuracyColor(bpm, targetBpm) : 'var(--fg)';
+  const bpmColor = bpm !== null ? accuracyColor(bpm, effectiveTarget) : 'var(--fg)';
+  // What lives on the graph's left rail: the practice tools, or the daily's
+  // play-the-song button (wrong-speed clip mid-run, the real thing once done).
+  const railKind: 'tools' | 'clip' | 'song' | null = !daily
+    ? 'tools'
+    : challenge
+      ? !challenge.practice && challenge.previewUrl
+        ? 'clip'
+        : null
+      : todayResult && apiConfigured()
+        ? 'song'
+        : null;
 
   return (
     <div
@@ -347,10 +449,15 @@ const App = () => {
     >
       <header className="topbar" data-no-tap>
         <h1 className="logo">
-          <MetronomeMark size={30} />
-          TempoTuner
+          <button className="logo-btn" onClick={goHome} aria-label="TempoTuner — back to practice">
+            <MetronomeMark size={30} />
+            TempoTuner
+          </button>
         </h1>
         <span className="topbar-buttons">
+          <button className="icon-btn" onClick={() => setLbOpen(true)} aria-label="Leaderboard">
+            🏆
+          </button>
           <button className="icon-btn" onClick={() => setHelpOpen(true)} aria-label="Help">
             ?
           </button>
@@ -371,8 +478,14 @@ const App = () => {
         </div>
       ) : demo.running ? (
         <p className="squiggle tagline challenge-song">🎵 {DEMO_SONG.title} — demo</p>
-      ) : songPlaying ? (
-        <p className="squiggle tagline">🎵 tap along — how close can you track it?</p>
+      ) : daily && todayResult ? (
+        // the daily's practice part: the song of the day is known — show it
+        <div className="challenge-title">
+          <strong>🎵 {todayResult.title ?? `Daily #${day}`}</strong>
+          <span>{todayResult.artist ?? "today's song"}</span>
+        </div>
+      ) : daily ? (
+        <p className="squiggle tagline">tap today's song from memory — 16 taps!</p>
       ) : (
         <p className="squiggle tagline">sing something &amp; tap anywhere to the beat!</p>
       )}
@@ -385,15 +498,10 @@ const App = () => {
               <span className="challenge-total">/{CHALLENGE_POINTS}</span>
             </div>
             <div className="bpm-label">taps</div>
-            <div className="chip-row" data-no-tap>
-              <button className="target-chip" onClick={cancelChallenge}>
+            <div className="bpm-actions" data-no-tap>
+              <button className="btn btn-ghost" onClick={cancelChallenge}>
                 ✕ stop challenge
               </button>
-              {!challenge.practice && challenge.previewUrl && (
-                <button className="target-chip" onClick={openClip}>
-                  🔊 remind me how it goes
-                </button>
-              )}
             </div>
           </>
         ) : demo.running ? (
@@ -404,193 +512,255 @@ const App = () => {
             <div className="bpm-label">
               {demo.beat >= 0 ? `tap ${demo.beat + 1} / ${DEMO_BEATS.length}` : 'listen…'}
             </div>
-            <button className="target-chip" data-no-tap onClick={stopDemo}>
-              ✕ stop demo
-            </button>
+            <div className="bpm-actions" data-no-tap>
+              <button className="btn btn-ghost" onClick={stopDemo}>
+                ✕ stop demo
+              </button>
+            </div>
           </>
         ) : (
           <>
-            <div className="bpm-row" data-no-tap>
-              <div className={`bpm-big ${bpm !== null ? '' : 'bpm-empty'}`} style={{ color: bpmColor }} key={taps.length}>
-                {bpm ?? '· ·'}
-              </div>
-              <button className="target-chip" onClick={() => setTargetOpen(true)}>
-                {targetBpm !== null ? (
-                  <>
-                    <Bullseye /> target {targetBpm}
-                    <span
-                      className="chip-x"
-                      role="button"
-                      aria-label="Remove target"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setTargetBpm(null);
-                        metronome.stop();
-                      }}
-                    >
-                      ✕
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <Bullseye /> set target
-                  </>
-                )}
-              </button>
+            <div
+              className={`bpm-big ${bpm !== null ? '' : 'bpm-empty'}`}
+              style={{ color: bpmColor }}
+              key={taps.length}
+            >
+              {bpm ?? '· ·'}
             </div>
             <div className="bpm-label">BPM</div>
-            {songPlaying && (
-              <button className="target-chip" data-no-tap onClick={() => stopPreview()}>
-                ◼ stop song
-              </button>
-            )}
+            <div className="bpm-actions" data-no-tap>
+              {daily ? (
+                <button className="btn btn-ghost" onClick={() => setDailyModalOpen(true)}>
+                  {todayResult ? `🎵 daily #${day} results` : `▶ play daily #${day}`}
+                </button>
+              ) : (
+                <button className="btn btn-ghost" onClick={() => setTargetOpen(true)}>
+                  {targetBpm !== null ? (
+                    <>
+                      <Bullseye /> target {targetBpm}
+                      <span
+                        className="chip-x"
+                        role="button"
+                        aria-label="Remove target"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setTargetBpm(null);
+                          metronome.stop();
+                        }}
+                      >
+                        ✕
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <Bullseye /> set target
+                    </>
+                  )}
+                </button>
+              )}
+            </div>
           </>
         )}
       </main>
 
-      <section className="graph-area">
-        {challenge ? (
-          <div className="graph-empty squiggle">
-            <div>
-              eyes off the screen — trust your inner clock!
-              <br />
-              numbers show up when you're done
-            </div>
+      {demo.running ? (
+        <div className="challenge-note squiggle">
+          <div>
+            every pulse = one tap — the steady beat, not every word!
+            <br />
+            hear how “star” holds on while the beat keeps ticking
           </div>
-        ) : demo.running ? (
-          <div className="graph-empty squiggle">
-            <div>
-              every pulse = one tap — the steady beat, not every word!
-              <br />
-              hear how “star” holds on while the beat keeps ticking
-            </div>
-          </div>
-        ) : (
-          <>
-        {(hasSession || recorder.hasRecording) && (
-          <button
-            className="icon-btn graph-reset"
-            data-no-tap
-            onClick={reset}
-            title="Clear taps and recording"
-            aria-label="Reset"
-          >
-            ↻
-          </button>
-        )}
-        {points.length === 0 && recorder.volume.length === 0 ? (
-          <div className="graph-empty squiggle">
-            <div>
-              was I rushing? dragging? steady?
-              <br />
-              your tempo graph shows up here
-            </div>
-            <svg className="arrow" viewBox="0 0 40 60" aria-hidden="true">
-              <path
-                d="M8 8 C 28 12, 34 28, 26 50 M26 50 l -2 -10 M26 50 l 10 -5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </div>
-        ) : (
-          <Graph
-            points={points}
-            targetBpm={targetBpm}
-            volume={recorder.volume}
-            playbackTime={recorder.playbackTime}
-            onSeek={recorder.status === 'playing' ? recorder.seek : null}
-          />
-        )}
-        <div className="stats-row">
-          {stats ? (
-            <>
-              <span>
-                avg <strong>{stats.avg}</strong>
-              </span>
-              <span>
-                score <strong>{stats.score}</strong>/100
-              </span>
-              <span>
-                beats <strong>{stats.count + 1}</strong>
-              </span>
-            </>
-          ) : (
-            <span className="stats-placeholder">{hasSession ? 'keep tapping…' : 'stats appear after a few taps'}</span>
-          )}
         </div>
-          </>
-        )}
-      </section>
+      ) : (
+        <section className={`graph-area ${railKind ? 'with-rail' : ''}`}>
+          {railKind === 'tools' && (
+            <div className="graph-rail" data-no-tap>
+              <button
+                className={`icon-btn rail-btn ${metronome.isOn ? 'rail-active' : ''}`}
+                onClick={toggleMetronome}
+                title={
+                  targetBpm === null
+                    ? 'Pick a target tempo for the metronome'
+                    : 'Metronome clicks at your target tempo'
+                }
+                aria-label={metronome.isOn ? 'Stop metronome' : 'Start metronome'}
+              >
+                {metronome.isOn ? '◼' : '♪'}
+              </button>
+              <button
+                className={`icon-btn rail-btn ${recorder.status === 'recording' ? 'rail-recording' : ''}`}
+                onClick={toggleRecord}
+                title="Record yourself while tapping"
+                aria-label={recorder.status === 'recording' ? 'Stop recording' : 'Record'}
+              >
+                {recorder.status === 'recording' ? '◼' : '●'}
+              </button>
+              {recorder.hasRecording && (
+                <button
+                  className={`icon-btn rail-btn ${recorder.status === 'playing' ? 'rail-active' : ''}`}
+                  onClick={togglePlay}
+                  title="Play your recording back"
+                  aria-label={recorder.status === 'playing' ? 'Stop playback' : 'Play recording'}
+                >
+                  {recorder.status === 'playing' ? '◼' : '▶'}
+                </button>
+              )}
+            </div>
+          )}
+          {railKind === 'clip' && (
+            <div className="graph-rail" data-no-tap>
+              <button
+                className="icon-btn rail-btn"
+                onClick={openClip}
+                title="Hear a clip — wrong speed on purpose"
+                aria-label="Hear a clip of the song"
+              >
+                🔊
+              </button>
+            </div>
+          )}
+          {railKind === 'song' && (
+            <div className="graph-rail" data-no-tap>
+              <button
+                className={`icon-btn rail-btn ${songPlaying ? 'rail-active' : ''}`}
+                onClick={toggleDailySong}
+                title="Play today's song and tap along"
+                aria-label={songPlaying ? 'Stop the song' : "Play today's song"}
+              >
+                {songPlaying ? '◼' : '🔊'}
+              </button>
+            </div>
+          )}
+          {!challenge && (hasSession || (!daily && recorder.hasRecording)) && (
+            <button
+              className="icon-btn graph-reset"
+              data-no-tap
+              onClick={reset}
+              title="Clear taps and recording"
+              aria-label="Reset"
+            >
+              <ResetArrow size={19} />
+            </button>
+          )}
+          {railKind === 'tools' && !hasSession && !metronome.isOn && (
+            <div className="rail-hint squiggle" style={{ top: 16 }} aria-hidden="true">
+              <svg className="rail-hint-arrow" viewBox="0 0 36 24">
+                <path
+                  d="M34 5 C 23 18, 15 21, 5 16 M5 16 l 7 -2 M5 16 l 5 6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              start a metronome and try to hold its beat
+            </div>
+          )}
+          {railKind === 'tools' && hasSession && !recorder.hasRecording && recorder.status === 'idle' && (
+            <div className="rail-hint squiggle" style={{ top: 64 }} aria-hidden="true">
+              <svg className="rail-hint-arrow" viewBox="0 0 36 24">
+                <path
+                  d="M34 5 C 23 18, 15 21, 5 16 M5 16 l 7 -2 M5 16 l 5 6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              record yourself to hear where your tempo drifted
+            </div>
+          )}
+          {railKind === 'clip' && points.length === 0 && (
+            <div className="rail-hint squiggle" style={{ top: 16 }} aria-hidden="true">
+              <svg className="rail-hint-arrow" viewBox="0 0 36 24">
+                <path
+                  d="M34 5 C 23 18, 15 21, 5 16 M5 16 l 7 -2 M5 16 l 5 6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              don't know the song? hear a clip
+            </div>
+          )}
+          {railKind === 'song' && !hasSession && !songPlaying && (
+            <div className="rail-hint squiggle" style={{ top: 16 }} aria-hidden="true">
+              <svg className="rail-hint-arrow" viewBox="0 0 36 24">
+                <path
+                  d="M34 5 C 23 18, 15 21, 5 16 M5 16 l 7 -2 M5 16 l 5 6"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2"
+                  strokeLinecap="round"
+                />
+              </svg>
+              play today's song and tap along
+            </div>
+          )}
+          {points.length === 0 && recorder.volume.length === 0 ? (
+            <div className="graph-empty squiggle">
+              <div>
+                {challenge ? (
+                  <>
+                    your taps draw here —
+                    <br />
+                    numbers come when you're done
+                  </>
+                ) : (
+                  <>
+                    was I rushing? dragging? steady?
+                    <br />
+                    your tempo graph shows up here
+                  </>
+                )}
+              </div>
+            </div>
+          ) : (
+            <Graph
+              points={points}
+              targetBpm={challenge ? null : effectiveTarget}
+              volume={recorder.volume}
+              playbackTime={recorder.playbackTime}
+              onSeek={!daily && recorder.status === 'playing' ? recorder.seek : null}
+              blind={challenge !== null}
+            />
+          )}
+          <div className="stats-row">
+            {challenge ? (
+              <span className="stats-placeholder">the score comes at the end</span>
+            ) : stats ? (
+              <>
+                <span>
+                  avg <strong>{stats.avg}</strong>
+                </span>
+                <span>
+                  score <strong>{stats.score}</strong>/100
+                </span>
+                <span>
+                  beats <strong>{stats.count + 1}</strong>
+                </span>
+              </>
+            ) : (
+              <span className="stats-placeholder">
+                {hasSession ? 'keep tapping…' : 'stats appear after a few taps'}
+              </span>
+            )}
+          </div>
+        </section>
+      )}
 
-      {!challenge && !demo.running && (
-      <>
-      <div className="controls-hint squiggle" data-no-tap aria-hidden="true">
-        {!hasSession && !metronome.isOn ? (
-          <span className="hint-inner hint-left">
-            <svg className="hint-arrow" viewBox="0 0 40 60">
-              <path
-                d="M32 8 C 12 12, 6 28, 14 50 M14 50 l 2 -10 M14 50 l -10 -5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-            start a metronome and try to hold its beat
-          </span>
-        ) : hasSession && !recorder.hasRecording && recorder.status === 'idle' ? (
-          <span className="hint-inner hint-center">
-            record yourself to hear where your tempo drifted
-            <svg className="hint-arrow" viewBox="0 0 40 60">
-              <path
-                d="M8 8 C 28 12, 34 28, 26 50 M26 50 l -2 -10 M26 50 l 10 -5"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
-          </span>
-        ) : null}
-      </div>
-      <nav className="controls" data-no-tap>
-        <button
-          className={`btn ${metronome.isOn ? 'btn-active' : ''}`}
-          onClick={toggleMetronome}
-          title={
-            targetBpm === null
-              ? 'Pick a target tempo for the metronome'
-              : 'Metronome clicks at your target tempo'
-          }
-        >
-          <span className="btn-icon">{metronome.isOn ? '◼' : '♪'}</span>
-          {metronome.isOn ? 'stop' : 'metronome'}
+      <nav className="tab-bar" data-no-tap>
+        <button className={`tab ${!daily ? 'tab-active' : ''}`} onClick={goPractice}>
+          <span className="btn-icon">♪</span>
+          practice
         </button>
-        <button className="btn btn-daily" onClick={() => setDailyOpen(true)} title="Daily tempo challenge">
+        <button className={`tab ${daily ? 'tab-active' : ''}`} onClick={openDailyTab}>
           <span className="btn-icon">🎵</span>
           daily #{day}
-          {!todayResult && <span className="pulse-dot btn-dot" aria-hidden="true" />}
+          {!todayResult && <span className="pulse-dot" aria-hidden="true" />}
         </button>
-        <button
-          className={`btn ${recorder.status === 'recording' ? 'btn-recording' : ''}`}
-          onClick={toggleRecord}
-          title="Record yourself while tapping"
-        >
-          <span className="btn-icon">{recorder.status === 'recording' ? '◼' : '●'}</span>
-          {recorder.status === 'recording' ? 'stop' : 'record'}
-        </button>
-        {recorder.hasRecording && (
-          <button className={`btn ${recorder.status === 'playing' ? 'btn-active' : ''}`} onClick={togglePlay}>
-            <span className="btn-icon">{recorder.status === 'playing' ? '◼' : '▶'}</span>
-            {recorder.status === 'playing' ? 'stop' : 'play'}
-          </button>
-        )}
       </nav>
-      </>
-      )}
 
       {recorder.status === 'denied' && (
         <div className="toast" data-no-tap>
@@ -612,6 +782,7 @@ const App = () => {
                 ✕
               </button>
             </div>
+            <div className="clip-wrong-prefix squiggle">heads up —</div>
             <div className="clip-wrong">wrong speed!</div>
             <p className="sheet-hint">
               The pitch is real but the tempo is scrambled on purpose — hear how the song goes,
@@ -626,8 +797,32 @@ const App = () => {
         </div>
       )}
       {helpOpen && <HelpModal onClose={() => setHelpOpen(false)} />}
-      {dailyOpen && (
-        <DailySheet
+      {nudgeOpen && !daily && !challenge && !demo.running && (
+        <div className="overlay overlay-center" data-no-tap>
+          <div className="sheet nudge-sheet">
+            <div className="sheet-header">
+              <h2>🎵 Daily #{day}</h2>
+              <button className="icon-btn" onClick={dismissNudge} aria-label="Not now">
+                ✕
+              </button>
+            </div>
+            <p className="sheet-hint">
+              Today's challenge is ready — tap a well-known song's beat from memory and see how
+              close you land.
+            </p>
+            <div className="sheet-actions">
+              <button className="btn btn-ghost" onClick={dismissNudge}>
+                Later
+              </button>
+              <button className="btn btn-primary" onClick={goDaily}>
+                Play today's daily
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {daily && dailyModalOpen && !challenge && !demo.running && (
+        <DailyModal
           todayKey={todayKey}
           day={day}
           dark={dark}
@@ -640,18 +835,20 @@ const App = () => {
           onStartPractice={startPractice}
           onDemo={startDemo}
           onLeaderboard={() => setLbOpen(true)}
-          onPracticeAt={(v, previewUrl) => {
-            setTargetBpm(v);
-            dismissDaily();
+          // Tap along inside the daily: the song of the day is the implicit
+          // target, so no practice-tab state is touched.
+          onPracticeAt={(_bpm, previewUrl) => {
             setRunReveal(null);
             setTaps([]);
+            setDailyModalOpen(false);
             if (previewUrl) {
+              dailyPreviewRef.current = { url: previewUrl };
               setSongPlaying(true);
               playPreview(previewUrl, { onDone: () => setSongPlaying(false) });
             }
           }}
           onClose={() => {
-            dismissDaily();
+            setDailyModalOpen(false);
             setRunReveal(null);
           }}
         />

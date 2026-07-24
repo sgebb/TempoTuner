@@ -83,7 +83,7 @@ const HistoryDots = ({ results, todayKey }: { results: DailyResults; todayKey: s
   </div>
 );
 
-const DailySheet = ({
+const DailyModal = ({
   todayKey,
   day,
   dark,
@@ -215,7 +215,7 @@ const DailySheet = ({
     }
   };
 
-  // No backdrop-click close: this sheet pops open right as the 16th tap lands,
+  // No backdrop-click close: this modal pops open right as the 16th tap lands,
   // and the next rhythm tap would dismiss the reveal before it was ever seen.
   return (
     <div className="overlay overlay-center" data-no-tap>
@@ -375,4 +375,4 @@ const DailySheet = ({
   );
 };
 
-export default DailySheet;
+export default DailyModal;

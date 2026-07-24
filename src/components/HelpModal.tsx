@@ -30,8 +30,9 @@ const HelpModal = ({ onClose }: Props) => (
           yourself and play it back to hear the moment your timing drifted.
         </p>
         <p>
-          <strong>Daily challenge 🎵</strong> — tap a well-known song's beat from memory, get
-          scored against its real BPM, build a streak and climb the 🏆 leaderboard.
+          <strong>Daily challenge 🎵</strong> — hit <em>🎵 daily</em> up top to tap a well-known
+          song's beat from memory, get scored against its real BPM, build a streak and climb the 🏆
+          leaderboard.
         </p>
         <p>
           <strong>Install it</strong> — <em>Add to Home Screen</em> in your browser menu makes it a

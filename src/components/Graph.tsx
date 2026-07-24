@@ -9,6 +9,8 @@ type Props = {
   playbackTime: number | null;
   /** set only while playing back — tapping the graph then seeks instead of counting a beat */
   onSeek?: ((absMs: number) => void) | null;
+  /** daily mode: show the shape of the run (am I steady?) but no BPM numbers */
+  blind?: boolean;
 };
 
 export function graphDomain(points: TapPoint[], targetBpm: number | null, volume: VolumeSample[]) {
@@ -50,7 +52,7 @@ const formatElapsed = (ms: number) => {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
 };
 
-const Graph = ({ points, targetBpm, volume, playbackTime, onSeek }: Props) => {
+const Graph = ({ points, targetBpm, volume, playbackTime, onSeek, blind = false }: Props) => {
   const wrapRef = useRef<HTMLDivElement | null>(null);
   const [size, setSize] = useState({ w: 320, h: 140 });
 
@@ -149,9 +151,12 @@ const Graph = ({ points, targetBpm, volume, playbackTime, onSeek }: Props) => {
         {bpmTicks.map((b) => (
           <g key={`y${b}`}>
             <line x1={padL} x2={w - padR} y1={y(b)} y2={y(b)} className="graph-grid" />
-            <text x={padL - 5} y={y(b) + 3} textAnchor="end" className="graph-axis-label">
-              {b}
-            </text>
+            {/* blind: keep the gridlines (steadiness is visible) but never the BPM values */}
+            {!blind && (
+              <text x={padL - 5} y={y(b) + 3} textAnchor="end" className="graph-axis-label">
+                {b}
+              </text>
+            )}
           </g>
         ))}
         {timeTicks.map((t) => (

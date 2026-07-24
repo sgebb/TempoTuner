@@ -28,6 +28,25 @@ export const ShareNodes = ({ size = 17 }: { size?: number }) => (
   </svg>
 );
 
+/** Reset: circular arrow. All strokes (no filled arrowhead) so it stays crisp
+ *  at any size — the old filled-triangle head rendered fuzzy. */
+export const ResetArrow = ({ size = 18 }: { size?: number }) => (
+  <svg
+    viewBox="0 0 24 24"
+    width={size}
+    height={size}
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="2.2"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+    aria-hidden="true"
+  >
+    <polyline points="21.5 3.5 21.5 9.5 15.5 9.5" />
+    <path d="M20.2 14.5 a8.5 8.5 0 1 1 -1.9 -8.8 L21.5 9" />
+  </svg>
+);
+
 /** Monochrome bullseye: two rings and a filled centre. */
 export const Bullseye = ({ size = 14 }: { size?: number }) => (
   <svg viewBox="0 0 24 24" width={size} height={size} aria-hidden="true">
