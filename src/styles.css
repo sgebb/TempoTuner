@@ -264,6 +264,14 @@ body {
   color: var(--muted);
 }
 
+/* the clip plays at a deliberately wrong tempo — say so LOUDLY */
+.clip-wrong {
+  font-size: clamp(34px, 10vmin, 60px);
+  color: var(--warn);
+  transform: rotate(-2deg);
+  animation: pop 0.25s ease-out, blink 1.6s ease-in-out infinite;
+}
+
 /* ---------- demo ---------- */
 .demo-lyric {
   font-size: clamp(48px, 16vmin, 96px);
@@ -750,12 +758,6 @@ body {
   font-size: 13px;
   font-weight: 700;
   color: var(--muted);
-}
-
-/* the price tag on the "remind me how it goes" chip */
-.clip-cost {
-  color: var(--warn);
-  font-size: 12px;
 }
 
 .preview-line {

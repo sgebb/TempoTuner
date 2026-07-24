@@ -9,9 +9,6 @@ export type Song = { title: string; artist: string; bpm: number; trackId: number
 /** Valid intervals needed to finish a challenge run. */
 export const CHALLENGE_POINTS = 16;
 
-/** Points deducted when the player listened to the song clip before the run. */
-export const CLIP_PENALTY = 10;
-
 // ---------- day math (all in local time, like Wordle) ----------
 
 const LAUNCH_DATE_KEY = '2026-07-22'; // daily #1

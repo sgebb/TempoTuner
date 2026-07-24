@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react';
 import {
-  CLIP_PENALTY,
   DailyResults,
   Octave,
   computeStreak,
@@ -22,8 +21,6 @@ export type RunReveal = {
   octave: Octave | null;
   /** consistency points deducted from the accuracy score (0 = steady run) */
   wobble: number;
-  /** points deducted for listening to the clip before the run */
-  clipPenalty?: number;
   practice: boolean;
   rankToday?: number;
   playersToday?: number;
@@ -148,7 +145,6 @@ const DailySheet = ({
           score: stored.score,
           octave: stored.actual != null ? scoreGuess(stored.guess, stored.actual).octave : null,
           wobble: stored.bpms ? wobblePenalty(stored.bpms) : 0,
-          clipPenalty: stored.clip ?? 0,
           practice: false,
         }
       : null);
@@ -273,11 +269,6 @@ const DailySheet = ({
                   it is the rest!
                 </span>
               )}
-              {(shown.clipPenalty ?? 0) > 0 && (
-                <span className="wobble-note">
-                  −{shown.clipPenalty} for listening to the clip first 🔊
-                </span>
-              )}
             </div>
             {apiConfigured() && (
               <p className="sheet-hint preview-line">
@@ -336,7 +327,8 @@ const DailySheet = ({
               <strong>main beat</strong> — the steady pulse you'd clap along to, not every word —
               16 taps, no live numbers. Your first full run is your score of record; stopping
               mid-run doesn't count. Unsure what to tap? Watch the demo first. Don't know the
-              song? You can play a 🔊 clip during the run — it costs {CLIP_PENALTY} points.
+              song? Play a 🔊 clip during the run — it's tempo-scrambled, so finding the real
+              beat is still all you.
             </p>
             {startError && (
               <p className="sheet-hint start-error">

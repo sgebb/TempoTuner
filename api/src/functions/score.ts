@@ -1,6 +1,6 @@
 import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/functions';
 import { RestError } from '@azure/data-tables';
-import { CHALLENGE_POINTS, CLIP_PENALTY, dailyNumber, scoreRun } from '../../../shared/scoring';
+import { CHALLENGE_POINTS, dailyNumber, scoreRun } from '../../../shared/scoring';
 import { songForDay } from '../lib/songs';
 import { DayEntity, PLAYER_PARTITION, PlayerEntity, ensureTable, getTable } from '../lib/store';
 
@@ -67,14 +67,10 @@ export async function score(req: HttpRequest, context: InvocationContext): Promi
   if (sd / avg < 0.004) return bad('that run looks machine-generated', 422);
 
   // Never trust a client-computed score: rescore the raw intervals with the
-  // exact same shared code the app runs. Listening to the song clip before
-  // the run is allowed but costs a flat penalty (self-reported — the client
-  // is trusted for the raw bpms anyway, so this adds no new attack surface).
-  const heardClip = (body as { heardClip?: unknown })?.heardClip === true;
-  const clip = heardClip ? CLIP_PENALTY : 0;
+  // exact same shared code the app runs. (The in-run song clip is free: it
+  // plays tempo-scrambled, so it never leaks the answer.)
   const song = songForDay(dailyNumber(day));
-  const raw = scoreRun(bpms as number[], song.bpm);
-  const result = { ...raw, score: Math.max(0, raw.score - clip), clip };
+  const result = scoreRun(bpms as number[], song.bpm);
 
   await ensureTable();
   const table = getTable();
@@ -89,7 +85,6 @@ export async function score(req: HttpRequest, context: InvocationContext): Promi
       guess: result.guess,
       octave: result.octave,
       wobble: result.wobble,
-      clip: result.clip,
     };
     stored = true;
     try {
@@ -154,7 +149,6 @@ export async function score(req: HttpRequest, context: InvocationContext): Promi
       guess: recorded.guess,
       octave: recorded.octave,
       wobble: recorded.wobble,
-      clipPenalty: recorded.clip ?? 0,
       actualBpm: song.bpm,
       rankToday,
       playersToday: own ? scores.length : scores.length + 1,

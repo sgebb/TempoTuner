@@ -17,8 +17,6 @@ export type DayEntity = {
   guess: number;
   octave: string;
   wobble: number;
-  /** points deducted for listening to the clip before the run (absent = 0) */
-  clip?: number;
 };
 
 export type PlayerEntity = {

@@ -34,37 +34,6 @@ const silentWavUrl = (): string => {
 };
 
 let silentEl: HTMLAudioElement | null = null;
-let thumpCtx: AudioContext | null = null;
-
-/**
- * Soft kick-drum thump as tap feedback. Deliberately does NOT promote the
- * audio session: with the iOS silent switch on, taps stay silent (fine —
- * it's a nicety, not a signal) unless the metronome or demo already
- * promoted the session.
- */
-export function playThump() {
-  const Ctx =
-    window.AudioContext ||
-    (window as typeof window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-  if (!Ctx) return;
-  if (!thumpCtx || thumpCtx.state === 'closed') thumpCtx = new Ctx();
-  const ctx = thumpCtx;
-  if (ctx.state === 'suspended') ctx.resume().catch(() => undefined);
-  const t = ctx.currentTime;
-  const osc = ctx.createOscillator();
-  const gain = ctx.createGain();
-  osc.type = 'sine';
-  // pitch drop 150→55 Hz = the classic kick shape; reads as a thump, not a beep
-  osc.frequency.setValueAtTime(150, t);
-  osc.frequency.exponentialRampToValueAtTime(55, t + 0.09);
-  gain.gain.setValueAtTime(0.0001, t);
-  gain.gain.exponentialRampToValueAtTime(0.5, t + 0.005);
-  gain.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
-  osc.connect(gain);
-  gain.connect(ctx.destination);
-  osc.start(t);
-  osc.stop(t + 0.14);
-}
 
 export function ensureAudiblePlayback() {
   const session = (navigator as AudioSessionNavigator).audioSession;

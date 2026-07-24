@@ -11,7 +11,6 @@ import { DEMO_BEATS, DEMO_SONG, useDemo } from './hooks/useDemo';
 import { accuracyColor, computeStats, currentBpm, tapsToPoints } from './lib/tempo';
 import {
   CHALLENGE_POINTS,
-  CLIP_PENALTY,
   DailyResults,
   dailyNumber,
   loadDailyResults,
@@ -19,7 +18,6 @@ import {
   saveDailyResults,
   scoreRun,
 } from './lib/daily';
-import { playThump } from './lib/audio';
 import { playPreview, stopPreview } from './lib/preview';
 import { fetchDaily, submitRun } from './lib/leaderboard';
 import LeaderboardSheet from './components/LeaderboardSheet';
@@ -67,13 +65,7 @@ const App = () => {
   const [scoringRun, setScoringRun] = useState(false);
   const [runError, setRunError] = useState(false);
   const [clipPlaying, setClipPlaying] = useState(false);
-  const heardClipRef = useRef(false);
-  const pendingRunRef = useRef<{
-    title: string;
-    artist: string;
-    bpms: number[];
-    heardClip: boolean;
-  } | null>(null);
+  const pendingRunRef = useRef<{ title: string; artist: string; bpms: number[] } | null>(null);
   const rippleId = useRef(0);
   const metronomePendingRef = useRef(false);
   const activeTapRef = useRef<{
@@ -121,7 +113,6 @@ const App = () => {
   const registerTap = useCallback(
     (x: number, y: number) => {
       const tapTime = performance.now();
-      playThump();
       setTaps((prev) => [...prev, tapTime]);
       return { tapTime, rippleId: spawnRipple(x, y) };
     },
@@ -151,8 +142,9 @@ const App = () => {
     if (target.closest('button, input, textarea, a, [data-no-tap]')) return;
     // While a recording plays you're reviewing, not practicing — taps on the
     // graph seek (handled there), taps elsewhere shouldn't count as beats.
-    // During the demo you're watching, not tapping.
-    if (recorder.status === 'playing' || demo.running) return;
+    // During the demo you're watching, not tapping. During the challenge clip
+    // you're listening at a scrambled tempo — tapping along would be nonsense.
+    if (recorder.status === 'playing' || demo.running || clipPlaying) return;
     const { tapTime, rippleId: rid } = registerTap(e.clientX, e.clientY);
     activeTapRef.current = { pointerId: e.pointerId, tapTime, rippleId: rid, x: e.clientX, y: e.clientY };
   };
@@ -175,7 +167,7 @@ const App = () => {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.code !== 'Space') return;
-      if (demo.running) return;
+      if (demo.running || clipPlaying) return;
       const target = e.target as Element;
       if (target.closest('button, input, textarea, [data-no-tap]')) return;
       e.preventDefault();
@@ -183,7 +175,7 @@ const App = () => {
     };
     window.addEventListener('keydown', onKey);
     return () => window.removeEventListener('keydown', onKey);
-  }, [registerTap, demo.running]);
+  }, [registerTap, demo.running, clipPlaying]);
 
   const reset = () => {
     setTaps([]);
@@ -206,7 +198,6 @@ const App = () => {
     setRunReveal(null);
     setRunError(false);
     pendingRunRef.current = null;
-    heardClipRef.current = false;
     setChallenge({
       title: info.title,
       artist: info.artist,
@@ -233,15 +224,15 @@ const App = () => {
     stopPreview();
   };
 
-  // "Don't know the song?" — play the clip, tempo-scrambled, for a flat
-  // penalty. Listening restarts the run: the taps so far are cleared.
+  // "Don't know the song?" — play the clip, tempo-scrambled so it never
+  // leaks the answer (that's why it's free). Listening restarts the run:
+  // the taps so far are cleared, and tapping pauses while it plays.
   const toggleClip = () => {
     if (clipPlaying) {
       stopPreview();
       return;
     }
     if (!challenge?.previewUrl) return;
-    heardClipRef.current = true;
     setTaps([]);
     setClipPlaying(true);
     playPreview(challenge.previewUrl, { scramble: true, onDone: () => setClipPlaying(false) });
@@ -268,7 +259,7 @@ const App = () => {
     setRunError(false);
     setScoringRun(true);
     try {
-      const res = await submitRun(todayKey, pending.bpms, pending.heardClip);
+      const res = await submitRun(todayKey, pending.bpms);
       const practice = !!dailyResults[todayKey]; // played already → doesn't count
       if (!practice) {
         const next = {
@@ -281,7 +272,6 @@ const App = () => {
             title: pending.title,
             artist: pending.artist,
             actual: res.actualBpm,
-            clip: res.clipPenalty || undefined,
           },
         };
         setDailyResults(next);
@@ -295,7 +285,6 @@ const App = () => {
         score: res.score,
         octave: res.octave,
         wobble: res.wobble,
-        clipPenalty: res.clipPenalty ?? 0,
         practice,
         rankToday: res.rankToday,
         playersToday: res.playersToday,
@@ -320,10 +309,10 @@ const App = () => {
     stopPreview();
     if (practice && bpm !== null) {
       const { guess, octave, wobble, score } = scoreRun(bpms, bpm);
-      setRunReveal({ title, artist, actual: bpm, guess, score, octave, wobble, clipPenalty: 0, practice: true });
+      setRunReveal({ title, artist, actual: bpm, guess, score, octave, wobble, practice: true });
       return;
     }
-    pendingRunRef.current = { title, artist, bpms, heardClip: heardClipRef.current };
+    pendingRunRef.current = { title, artist, bpms };
     void scorePendingRun();
   }, [challenge, points, scorePendingRun]);
 
@@ -390,25 +379,27 @@ const App = () => {
       <main className="bpm-zone">
         {challenge ? (
           <>
-            <div className="bpm-big challenge-progress" key={points.length}>
-              {Math.min(points.length, CHALLENGE_POINTS)}
-              <span className="challenge-total">/{CHALLENGE_POINTS}</span>
-            </div>
-            <div className="bpm-label">taps</div>
+            {clipPlaying ? (
+              <>
+                <div className="bpm-big clip-wrong">wrong speed!</div>
+                <div className="bpm-label">on purpose — don't tap along</div>
+              </>
+            ) : (
+              <>
+                <div className="bpm-big challenge-progress" key={points.length}>
+                  {Math.min(points.length, CHALLENGE_POINTS)}
+                  <span className="challenge-total">/{CHALLENGE_POINTS}</span>
+                </div>
+                <div className="bpm-label">taps</div>
+              </>
+            )}
             <div className="chip-row" data-no-tap>
               <button className="target-chip" onClick={cancelChallenge}>
                 ✕ stop challenge
               </button>
               {!challenge.practice && challenge.previewUrl && (
                 <button className="target-chip" onClick={toggleClip}>
-                  {clipPlaying ? (
-                    '◼ stop clip'
-                  ) : (
-                    <>
-                      🔊 remind me how it goes
-                      <span className="clip-cost">−{CLIP_PENALTY}</span>
-                    </>
-                  )}
+                  {clipPlaying ? '◼ stop clip' : '🔊 remind me how it goes'}
                 </button>
               )}
             </div>
@@ -476,9 +467,9 @@ const App = () => {
             <div>
               {clipPlaying ? (
                 <>
-                  the clip keeps its pitch but the tempo is scrambled —
+                  the clip's tempo is scrambled — hearing the song is free,
                   <br />
-                  it won't hand you the answer 😉
+                  finding its real beat is still on you! (taps pause meanwhile)
                 </>
               ) : (
                 <>
