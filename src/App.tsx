@@ -55,13 +55,16 @@ const App = () => {
     return !loadDailyResults()[key] && localStorage.getItem('tt-daily-prompted') !== key;
   });
   const [dailyResults, setDailyResults] = useState<DailyResults>(loadDailyResults);
-  // bpm is only known for practice replays (revealed by a scored run); the
-  // real daily is scored server-side, which owns the answer.
+  // bpm is only known for practice replays (revealed by a scored run) and
+  // archive replays of closed days; the real daily is scored server-side,
+  // which owns the answer.
   const [challenge, setChallenge] = useState<{
     title: string;
     artist: string;
     bpm: number | null;
     practice: boolean;
+    /** a closed past day being made up — scored locally, saved as `late` */
+    archive: { key: string; number: number } | null;
     previewUrl: string | null;
   } | null>(null);
   const [runReveal, setRunReveal] = useState<RunReveal | null>(null);
@@ -243,6 +246,7 @@ const App = () => {
       artist: info.artist,
       bpm: null,
       practice: false,
+      archive: null,
       previewUrl: info.previewUrl ?? null,
     });
     setDailyModalOpen(false);
@@ -255,7 +259,28 @@ const App = () => {
     setRunReveal(null);
     setRunError(false);
     pendingRunRef.current = null;
-    setChallenge({ title, artist, bpm, practice: true, previewUrl: null });
+    setChallenge({ title, artist, bpm, practice: true, archive: null, previewUrl: null });
+    setDailyModalOpen(false);
+  };
+
+  // A missed day from the calendar: the server reveals a closed day's BPM,
+  // so the run is scored locally and saved as `late` — never the leaderboard.
+  const startArchive = async (dayKey: string) => {
+    const info = await fetchDaily(dayKey); // throws → the calendar shows the error
+    // no bpm → the day is still open somewhere on Earth; the answer stays hidden
+    if (info.bpm == null) throw new Error('open');
+    reset();
+    setRunReveal(null);
+    setRunError(false);
+    pendingRunRef.current = null;
+    setChallenge({
+      title: info.title,
+      artist: info.artist,
+      bpm: info.bpm,
+      practice: false,
+      archive: { key: dayKey, number: info.number },
+      previewUrl: info.previewUrl ?? null,
+    });
     setDailyModalOpen(false);
   };
 
@@ -332,24 +357,54 @@ const App = () => {
     }
   }, [todayKey, dailyResults, day]);
 
-  // A challenge run ends itself after enough valid intervals. Practice runs
-  // (BPM known from an earlier reveal) score locally; the real daily goes to
-  // the server, which owns the answer.
+  // A challenge run ends itself after enough valid intervals. Runs with a
+  // known BPM (practice and archive replays) score locally; the real daily
+  // goes to the server, which owns the answer.
   useEffect(() => {
     if (!challenge || points.length < CHALLENGE_POINTS) return;
     const bpms = points.map((p) => Math.round(p.bpm));
-    const { title, artist, bpm, practice } = challenge;
+    const { title, artist, bpm, practice, archive } = challenge;
     setChallenge(null);
     setDailyModalOpen(true); // the reveal shows in the daily modal
     stopPreview();
-    if (practice && bpm !== null) {
+    if (bpm !== null) {
       const { guess, octave, wobble, score } = scoreRun(bpms, bpm);
-      setRunReveal({ title, artist, actual: bpm, guess, score, octave, wobble, practice: true });
+      if (archive && !dailyResults[archive.key]) {
+        // first make-up run for that day wins, like the real daily
+        const next: DailyResults = {
+          ...dailyResults,
+          [archive.key]: {
+            day: archive.number,
+            guess,
+            score,
+            bpms,
+            title,
+            artist,
+            actual: bpm,
+            late: true,
+          },
+        };
+        setDailyResults(next);
+        saveDailyResults(next);
+      }
+      setRunReveal({
+        title,
+        artist,
+        actual: bpm,
+        guess,
+        score,
+        octave,
+        wobble,
+        practice,
+        archive: archive !== null,
+        dayNum: archive?.number,
+        dayKey: archive?.key,
+      });
       return;
     }
     pendingRunRef.current = { title, artist, bpms };
     void scorePendingRun();
-  }, [challenge, points, scorePendingRun]);
+  }, [challenge, points, scorePendingRun, dailyResults]);
 
   const toggleMetronome = () => {
     if (metronome.isOn) metronome.stop();
@@ -392,7 +447,7 @@ const App = () => {
         {!inRun && (
           <span className="topbar-buttons">
             <button className="daily-btn" onClick={openDaily} title="Daily tempo challenge">
-              🎵 daily #{day}
+              🎵 <span className="daily-word">daily</span> #{day}
               {!todayResult && <span className="pulse-dot" aria-hidden="true" />}
             </button>
             <button className="icon-btn" onClick={() => setLbOpen(true)} aria-label="Leaderboard">
@@ -405,7 +460,10 @@ const App = () => {
       {challenge ? (
         <div className="challenge-title">
           <strong>🎵 {challenge.title}</strong>
-          <span>{challenge.artist}</span>
+          <span>
+            {challenge.artist}
+            {challenge.archive ? ` — daily #${challenge.archive.number}` : ''}
+          </span>
         </div>
       ) : demo.running ? (
         <div className="challenge-title">
@@ -734,6 +792,7 @@ const App = () => {
           runError={runError}
           onRetryRun={scorePendingRun}
           onStartDaily={startDaily}
+          onStartArchive={startArchive}
           onStartPractice={startPractice}
           onDemo={startDemo}
           onLeaderboard={() => setLbOpen(true)}

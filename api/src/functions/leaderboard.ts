@@ -1,4 +1,5 @@
 import { app, HttpRequest, HttpResponseInit } from '@azure/functions';
+import { rateLimit } from '../lib/rateLimit';
 import { DayEntity, PLAYER_PARTITION, PlayerEntity, ensureTable, getTable } from '../lib/store';
 
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -6,6 +7,10 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 const TOP_N = 20;
 
 export async function leaderboard(req: HttpRequest): Promise<HttpResponseInit> {
+  // the costliest endpoint (two full table scans) — keep refresh-spamming in check
+  const limited = rateLimit(req, 'leaderboard', 30);
+  if (limited) return limited;
+
   const day = req.query.get('day') ?? '';
   const uuidRaw = req.query.get('uuid') ?? '';
   if (!DAY_RE.test(day)) return { status: 400, jsonBody: { error: 'invalid day' } };

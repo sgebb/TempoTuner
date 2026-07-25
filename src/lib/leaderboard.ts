@@ -53,6 +53,8 @@ export type DailyInfo = {
   previewUrl: string | null;
   /** Apple Music page for the track — attribution link next to the preview */
   trackUrl: string | null;
+  /** the answer — present only for closed past days, so archive replays can score locally */
+  bpm?: number;
 };
 
 export type RunResult = {

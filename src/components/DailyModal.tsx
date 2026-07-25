@@ -3,6 +3,8 @@ import {
   DailyResults,
   Octave,
   computeStreak,
+  dailyNumber,
+  localDateKey,
   scoreGuess,
   shiftDateKey,
   wobblePenalty,
@@ -22,6 +24,11 @@ export type RunReveal = {
   /** consistency points deducted from the accuracy score (0 = steady run) */
   wobble: number;
   practice: boolean;
+  /** a made-up past day — saved locally as `late`, never on the leaderboard */
+  archive?: boolean;
+  /** the played day's number/key when it isn't today (archive runs) */
+  dayNum?: number;
+  dayKey?: string;
   rankToday?: number;
   playersToday?: number;
 };
@@ -39,6 +46,9 @@ type Props = {
   runError: boolean;
   onRetryRun: () => void;
   onStartDaily: () => Promise<void>;
+  /** play a missed (closed) day from the calendar — throws Error('open') if the
+   *  day can still be scored somewhere on Earth */
+  onStartArchive: (dayKey: string) => Promise<void>;
   /** "Try again": the same blind run, score not submitted */
   onStartPractice: (title: string, artist: string, bpm: number) => void;
   onDemo: () => void;
@@ -71,6 +81,100 @@ const octaveNote = (octave: Octave | null): string | null => {
 
 const scoreClass = (score: number) => (score >= 80 ? 'dot-good' : score >= 50 ? 'dot-warn' : 'dot-bad');
 
+const pad2 = (n: number) => String(n).padStart(2, '0');
+
+/**
+ * The archive calendar: one cell per date. Grey = not out (pre-launch or
+ * future), green = played on the day, yellow = made up later, red = missed
+ * and playable. Red cells (and an unplayed today) start a run via onPick.
+ */
+const ArchiveCalendar = ({
+  results,
+  todayKey,
+  busyKey,
+  onPick,
+}: {
+  results: DailyResults;
+  todayKey: string;
+  busyKey: string | null;
+  onPick: (dayKey: string) => void;
+}) => {
+  const [month, setMonth] = useState(todayKey.slice(0, 7)); // 'YYYY-MM'
+  const [y, m] = month.split('-').map(Number);
+  const daysInMonth = new Date(y, m, 0).getDate();
+  const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7; // Monday-first
+  // navigable range: the launch month through the current month
+  const canPrev = dailyNumber(localDateKey(new Date(y, m - 1, 0))) >= 1;
+  const canNext = localDateKey(new Date(y, m, 1)) <= todayKey;
+  const shiftMonth = (by: number) => {
+    const d = new Date(y, m - 1 + by, 1);
+    setMonth(`${d.getFullYear()}-${pad2(d.getMonth() + 1)}`);
+  };
+  const monthLabel = new Date(y, m - 1, 1).toLocaleDateString(undefined, {
+    month: 'long',
+    year: 'numeric',
+  });
+
+  return (
+    <>
+      <div className="cal-head">
+        <button className="icon-btn" onClick={() => shiftMonth(-1)} disabled={!canPrev} aria-label="Previous month">
+          ‹
+        </button>
+        <span className="cal-month">{monthLabel}</span>
+        <button className="icon-btn" onClick={() => shiftMonth(1)} disabled={!canNext} aria-label="Next month">
+          ›
+        </button>
+      </div>
+      <div className="cal-grid">
+        {['M', 'T', 'W', 'T', 'F', 'S', 'S'].map((d, i) => (
+          <span key={`wd${i}`} className="cal-wd" aria-hidden="true">
+            {d}
+          </span>
+        ))}
+        {Array.from({ length: lead }, (_, i) => (
+          <span key={`lead${i}`} className="cal-cell cal-blank" />
+        ))}
+        {Array.from({ length: daysInMonth }, (_, i) => {
+          const key = `${y}-${pad2(m)}-${pad2(i + 1)}`;
+          const num = dailyNumber(key);
+          const released = num >= 1 && key <= todayKey;
+          const r = results[key];
+          const done = !!r && !r.skipped && r.score !== null;
+          const cls = !released ? 'cal-off' : done ? (r.late ? 'cal-late' : 'cal-done') : 'cal-missed';
+          const playable = released && !done;
+          return (
+            <button
+              key={key}
+              className={`cal-cell ${cls}${key === todayKey ? ' cal-today' : ''}${key === busyKey ? ' cal-busy' : ''}`}
+              disabled={!playable || busyKey !== null}
+              onClick={() => onPick(key)}
+              title={released ? `Daily #${num}` : undefined}
+              aria-label={released ? `Daily #${num}, ${key}` : key}
+            >
+              {i + 1}
+            </button>
+          );
+        })}
+      </div>
+      <div className="cal-legend">
+        <span>
+          <i className="cal-dot cal-done" /> played
+        </span>
+        <span>
+          <i className="cal-dot cal-late" /> made up
+        </span>
+        <span>
+          <i className="cal-dot cal-missed" /> missed
+        </span>
+        <span>
+          <i className="cal-dot cal-off" /> not out
+        </span>
+      </div>
+    </>
+  );
+};
+
 const HistoryDots = ({ results, todayKey }: { results: DailyResults; todayKey: string }) => (
   <div className="history-dots" aria-label="Last 7 days">
     {Array.from({ length: 7 }, (_, i) => {
@@ -92,6 +196,7 @@ const DailyModal = ({
   runError,
   onRetryRun,
   onStartDaily,
+  onStartArchive,
   onStartPractice,
   onDemo,
   onLeaderboard,
@@ -101,6 +206,10 @@ const DailyModal = ({
   const [busy, setBusy] = useState(false);
   const [startBusy, setStartBusy] = useState(false);
   const [startError, setStartError] = useState(false);
+  // the archive calendar swaps in for the modal body
+  const [calOpen, setCalOpen] = useState(false);
+  const [calBusy, setCalBusy] = useState<string | null>(null);
+  const [calError, setCalError] = useState<string | null>(null);
   // Preview info is fetched lazily on the first "listen" tap — a reveal
   // re-shown from storage never called fetchDaily.
   const [preview, setPreview] = useState<{ url: string | null; trackUrl: string | null } | null>(
@@ -124,7 +233,8 @@ const DailyModal = ({
     if (preview) return preview;
     let p: { url: string | null; trackUrl: string | null };
     try {
-      const info = await fetchDaily(todayKey);
+      // an archive reveal listens to its own day's song, not today's
+      const info = await fetchDaily(shown?.dayKey ?? todayKey);
       p = { url: info.previewUrl, trackUrl: info.trackUrl };
     } catch {
       p = { url: null, trackUrl: null };
@@ -179,6 +289,28 @@ const DailyModal = ({
     }
   };
 
+  // A calendar cell was tapped: today runs the real daily, a closed past
+  // day runs an archive replay (on success either way this sheet unmounts).
+  const pickDay = async (dayKey: string) => {
+    setCalError(null);
+    if (dayKey === todayKey) {
+      setCalOpen(false);
+      await start();
+      return;
+    }
+    setCalBusy(dayKey);
+    try {
+      await onStartArchive(dayKey);
+    } catch (err) {
+      setCalError(
+        err instanceof Error && err.message === 'open'
+          ? "that day is still being played around the world — come back tomorrow"
+          : "couldn't fetch that day — are you online?"
+      );
+      setCalBusy(null);
+    }
+  };
+
   const share = async () => {
     if (!shown || busy) return;
     setBusy(true);
@@ -219,13 +351,37 @@ const DailyModal = ({
     <div className="overlay overlay-center" data-no-tap>
       <div className="sheet">
         <div className="sheet-header">
-          <h2>🎵 Daily #{day}</h2>
-          <button className="icon-btn" onClick={onClose} aria-label="Close">
-            ✕
-          </button>
+          <h2>🎵 {calOpen ? 'Past dailies' : `Daily #${shown?.dayNum ?? day}`}</h2>
+          <span className="sheet-header-btns">
+            {!scoring && !runError && (
+              <button
+                className={`icon-btn${calOpen ? ' cal-toggle-on' : ''}`}
+                onClick={() => {
+                  setCalOpen((o) => !o);
+                  setCalError(null);
+                }}
+                title="Play a day you missed"
+                aria-label="Past dailies calendar"
+              >
+                📅
+              </button>
+            )}
+            <button className="icon-btn" onClick={onClose} aria-label="Close">
+              ✕
+            </button>
+          </span>
         </div>
 
-        {scoring ? (
+        {calOpen ? (
+          <>
+            <ArchiveCalendar results={results} todayKey={todayKey} busyKey={calBusy} onPick={pickDay} />
+            {calError && <p className="sheet-hint start-error">{calError}</p>}
+            <p className="sheet-hint sheet-fineprint">
+              tap a missed day to play it now — made-up runs are saved on your device only, not the
+              leaderboard
+            </p>
+          </>
+        ) : scoring ? (
           <p className="sheet-hint">🥁 scoring your run…</p>
         ) : runError ? (
           <>
@@ -246,6 +402,9 @@ const DailyModal = ({
               <span className="daily-artist">{shown.artist}</span>
             </div>
             {shown.practice && <p className="sheet-hint">practice run — doesn't count</p>}
+            {shown.archive && (
+              <p className="sheet-hint">made-up day — saved on your device, not the leaderboard</p>
+            )}
             <div className="reveal-row">
               <div className="reveal-cell">
                 <div className="reveal-num">
@@ -289,7 +448,7 @@ const DailyModal = ({
                 </span>
               )}
             </div>
-            {!shown.practice && (
+            {!shown.practice && !shown.archive && (
               <div className="daily-streak-row">
                 <span>🔥 {streak} day streak</span>
                 <HistoryDots results={results} todayKey={todayKey} />
@@ -307,7 +466,7 @@ const DailyModal = ({
               <button className="btn btn-ghost" onClick={onLeaderboard}>
                 🏆 Leaderboard
               </button>
-              {!shown.practice && (
+              {!shown.practice && !shown.archive && (
                 <button className="btn btn-primary" onClick={share} disabled={busy}>
                   {busy ? 'Creating…' : copied ? 'Copied!' : 'Share'}
                 </button>

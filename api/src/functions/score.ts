@@ -2,6 +2,7 @@ import { app, HttpRequest, HttpResponseInit, InvocationContext } from '@azure/fu
 import { RestError } from '@azure/data-tables';
 import { CHALLENGE_POINTS, dailyNumber, scoreRun } from '../../../shared/scoring';
 import { songForDay } from '../lib/songs';
+import { rateLimit } from '../lib/rateLimit';
 import { DayEntity, PLAYER_PARTITION, PlayerEntity, ensureTable, getTable } from '../lib/store';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
@@ -36,6 +37,10 @@ function dayIsCurrent(day: string): boolean {
 }
 
 export async function score(req: HttpRequest, context: InvocationContext): Promise<HttpResponseInit> {
+  // a real player scores once a day plus the odd retry; 10/min stops spam
+  const limited = rateLimit(req, 'score', 10);
+  if (limited) return limited;
+
   let body: unknown;
   try {
     body = await req.json();

@@ -26,6 +26,9 @@ export type DailyResult = {
    *  still say "you'd be #N of M today" and offer the leaderboard join */
   rankToday?: number;
   playersToday?: number;
+  /** played after the day had closed (archive replay) — local only, never on
+   *  the leaderboard, and doesn't count toward the streak */
+  late?: boolean;
 };
 
 export type DailyResults = Record<string, DailyResult>;
@@ -50,11 +53,16 @@ export function saveDailyResults(results: DailyResults) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ results }));
 }
 
-/** Consecutive days played ending today — or yesterday, so an unplayed today doesn't read as 0. */
+/** Consecutive days played ending today — or yesterday, so an unplayed today doesn't read as 0.
+ *  Archive replays (late) don't count: a streak can't be backfilled. */
 export function computeStreak(results: DailyResults, todayKey: string): number {
+  const playedOnTheDay = (key: string) => {
+    const r = results[key];
+    return !!r && !r.late;
+  };
   let streak = 0;
-  let key = results[todayKey] ? todayKey : shiftDateKey(todayKey, -1);
-  while (results[key]) {
+  let key = playedOnTheDay(todayKey) ? todayKey : shiftDateKey(todayKey, -1);
+  while (playedOnTheDay(key)) {
     streak++;
     key = shiftDateKey(key, -1);
   }
