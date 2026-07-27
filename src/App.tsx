@@ -798,6 +798,10 @@ const App = () => {
           onLeaderboard={() => setLbOpen(true)}
           onClose={() => {
             setDailyModalOpen(false);
+            // Closing a just-finished run's reveal lands you back on the main
+            // screen with the run's taps still drawn — set the target to the
+            // song's real BPM so the graph and stats show how close you were.
+            if (runReveal?.actual != null) setTargetBpm(runReveal.actual);
             setRunReveal(null);
           }}
         />
