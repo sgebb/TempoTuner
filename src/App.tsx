@@ -88,7 +88,7 @@ const App = () => {
 
   const points = useMemo(() => tapsToPoints(taps), [taps]);
   const bpm = useMemo(() => currentBpm(points), [points]);
-  const stats = useMemo(() => computeStats(points, targetBpm), [points, targetBpm]);
+  const stats = useMemo(() => computeStats(points), [points]);
 
   // The demo draws a perfectly steady run on the graph, one point per beat —
   // "this is what holding the tempo looks like".
@@ -600,9 +600,6 @@ const App = () => {
             <>
               <span>
                 avg <strong>{stats.avg}</strong>
-              </span>
-              <span>
-                score <strong>{stats.score}</strong>/100
               </span>
               <span>
                 beats <strong>{stats.count + 1}</strong>

@@ -71,7 +71,7 @@ export function scoreGuess(guess: number, target: number): { score: number; octa
  * Consistency penalty for a challenge run: the median guess can be spot-on
  * while the taps wobbled all over, so high interval variance costs points.
  * A missed or fumbled tap is a stumble, not a wobbly sense of tempo — the
- * worst ~10% of intervals are excluded first (like computeStats does), so
+ * worst ~10% of intervals are excluded first, so
  * only sustained unsteadiness is penalized. cv ≲ 4% on the rest is free;
  * it ramps up to −25 from there.
  */
