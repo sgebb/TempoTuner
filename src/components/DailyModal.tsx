@@ -53,8 +53,14 @@ type Props = {
   /** play a missed (closed) day from the calendar — throws Error('open') if the
    *  day can still be scored somewhere on Earth */
   onStartArchive: (dayKey: string) => Promise<void>;
-  /** "Try again": the same blind run, score not submitted */
-  onStartPractice: (title: string, artist: string, bpm: number) => void;
+  /** "Try again" / calendar replay: the same blind run, score not submitted;
+   *  pass the day's key/number so the reveal stays labeled as that day */
+  onStartPractice: (
+    title: string,
+    artist: string,
+    bpm: number,
+    archive?: { key: string; number: number } | null
+  ) => void;
   onDemo: () => void;
   onLeaderboard: () => void;
   onClose: () => void;
@@ -146,15 +152,14 @@ const ArchiveCalendar = ({
           const r = results[key];
           const done = !!r && !r.skipped && r.score !== null;
           const cls = !released ? 'cal-off' : done ? (r.late ? 'cal-late' : 'cal-done') : 'cal-missed';
-          const playable = released && !done;
           return (
             <button
               key={key}
               className={`cal-cell ${cls}${key === todayKey ? ' cal-today' : ''}${key === busyKey ? ' cal-busy' : ''}`}
-              disabled={!playable || busyKey !== null}
+              disabled={!released || busyKey !== null}
               onClick={() => onPick(key)}
-              title={released ? `Daily #${num}` : undefined}
-              aria-label={released ? `Daily #${num}, ${key}` : key}
+              title={released ? (done ? `Daily #${num} — replay` : `Daily #${num}`) : undefined}
+              aria-label={released ? `Daily #${num}, ${key}${done ? ', replay' : ''}` : key}
             >
               {i + 1}
             </button>
@@ -317,10 +322,16 @@ const DailyModal = ({
     }
   };
 
-  // A calendar cell was tapped: today runs the real daily, a closed past
-  // day runs an archive replay (on success either way this sheet unmounts).
+  // A calendar cell was tapped: an unplayed today runs the real daily, an
+  // unplayed closed day runs a make-up (saved as `late`), and a day already
+  // played replays as practice — score revealed, nothing overwritten.
   const pickDay = async (dayKey: string) => {
     setCalError(null);
+    const r = results[dayKey];
+    if (r && !r.skipped && r.score !== null && r.title && r.artist && r.actual != null) {
+      onStartPractice(r.title, r.artist, r.actual, { key: dayKey, number: dailyNumber(dayKey) });
+      return;
+    }
     if (dayKey === todayKey) {
       setCalOpen(false);
       await start();
@@ -458,8 +469,8 @@ const DailyModal = ({
             <ArchiveCalendar results={results} todayKey={todayKey} busyKey={calBusy} onPick={pickDay} />
             {calError && <p className="sheet-hint start-error">{calError}</p>}
             <p className="sheet-hint sheet-fineprint">
-              tap a missed day to play it now — made-up runs are saved on your device only, not the
-              leaderboard
+              tap a missed day to play it now (saved on your device only, not the leaderboard) —
+              played days can be replayed for fun anytime
             </p>
           </>
         ) : scoring ? (
@@ -483,7 +494,7 @@ const DailyModal = ({
               <span className="daily-artist">{shown.artist}</span>
             </div>
             {shown.practice && <p className="sheet-hint">practice run — doesn't count</p>}
-            {shown.archive && (
+            {shown.archive && !shown.practice && (
               <p className="sheet-hint">made-up day — saved on your device, not the leaderboard</p>
             )}
             <div className="reveal-row">
@@ -568,7 +579,14 @@ const DailyModal = ({
               {shown.actual !== null && (
                 <button
                   className="btn btn-ghost"
-                  onClick={() => onStartPractice(shown.title, shown.artist, shown.actual!)}
+                  onClick={() =>
+                    onStartPractice(
+                      shown.title,
+                      shown.artist,
+                      shown.actual!,
+                      shown.dayKey && shown.dayNum ? { key: shown.dayKey, number: shown.dayNum } : null
+                    )
+                  }
                 >
                   Try again
                 </button>

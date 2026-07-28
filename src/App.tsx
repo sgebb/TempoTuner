@@ -265,14 +265,21 @@ const App = () => {
     setDailyModalOpen(false);
   };
 
-  // "Try again" replays a song whose BPM a scored run already revealed —
-  // the same blind run, but the score can't be submitted.
-  const startPractice = (title: string, artist: string, bpm: number) => {
+  // "Try again" and calendar replays: the same blind run of a song whose BPM
+  // a scored run already revealed — scored locally, never saved or submitted.
+  // Replays of a specific day carry its key/number so the reveal stays
+  // labeled as that day (the save guard skips days that already have a result).
+  const startPractice = (
+    title: string,
+    artist: string,
+    bpm: number,
+    archive: { key: string; number: number } | null = null
+  ) => {
     reset();
     setRunReveal(null);
     setRunError(false);
     pendingRunRef.current = null;
-    setChallenge({ title, artist, bpm, practice: true, archive: null, previewUrl: null });
+    setChallenge({ title, artist, bpm, practice: true, archive, previewUrl: null });
     setDailyModalOpen(false);
   };
 
