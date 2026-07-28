@@ -895,6 +895,20 @@ body {
   color: var(--muted);
 }
 
+/* the challenge verdict on the reveal — same handwriting as the octave note */
+.ghost-note {
+  font-family: 'Caveat', 'Segoe Script', cursive;
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent);
+  text-align: center;
+}
+
+/* "X scored 71/100 — beat that!" banner on the intro */
+.ghost-banner strong {
+  color: var(--accent);
+}
+
 .preview-line {
   text-align: center;
 }

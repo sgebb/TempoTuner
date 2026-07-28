@@ -11,6 +11,8 @@ import {
 } from '../lib/daily';
 import { renderDailyShareImage, shareOrDownload } from '../lib/shareImage';
 import { apiConfigured, fetchDaily, getNickname } from '../lib/leaderboard';
+import { Challenge, challengeUrl } from '../lib/challenge';
+import { canPromptInstall, isInstalled, isIos, promptInstall } from '../lib/install';
 import { playPreview, stopPreview } from '../lib/preview';
 
 export type RunReveal = {
@@ -38,6 +40,8 @@ type Props = {
   day: number;
   dark: boolean;
   results: DailyResults;
+  /** a friend's score to beat, carried in by a challenge link */
+  ghost: Challenge | null;
   /** a just-finished run to reveal; null → show today's stored result or the intro */
   reveal: RunReveal | null;
   /** a finished run is at the server being scored */
@@ -191,6 +195,7 @@ const DailyModal = ({
   day,
   dark,
   results,
+  ghost,
   reveal,
   scoring,
   runError,
@@ -221,6 +226,29 @@ const DailyModal = ({
   const playingRef = useRef(false);
   const stored = results[todayKey];
   const streak = computeStreak(results, todayKey);
+
+  // Once a streak is worth protecting (3+ days), offer to install the app —
+  // asking earlier just gets dismissed, and the habit is what makes it stick.
+  const [installDismissed, setInstallDismissed] = useState(
+    () => localStorage.getItem('tt-install-dismissed') === '1'
+  );
+  const [installBusy, setInstallBusy] = useState(false);
+  const showInstallNudge =
+    streak >= 3 && !installDismissed && !isInstalled() && (canPromptInstall() || isIos());
+
+  const dismissInstall = () => {
+    localStorage.setItem('tt-install-dismissed', '1');
+    setInstallDismissed(true);
+  };
+
+  const install = async () => {
+    setInstallBusy(true);
+    const accepted = await promptInstall();
+    setInstallBusy(false);
+    // declined → the captured prompt is spent, so the nudge hides on its own
+    // this session (canPromptInstall is false) and comes back another day
+    if (accepted) dismissInstall();
+  };
 
   useEffect(
     () => () => {
@@ -311,13 +339,66 @@ const DailyModal = ({
     }
   };
 
+  // A friend's challenge for a day other than today (links get opened late,
+  // and timezones can even make the challenged day tomorrow here). Rendered
+  // on both the intro and the reveal, until that day has been played.
+  const ghostName = ghost?.nick ?? 'A friend';
+  const ghostElsewhere = ghost && ghost.day !== todayKey && !results[ghost.day] && (
+    <>
+      {ghost.day > todayKey ? (
+        <p className="sheet-hint ghost-banner">
+          🥊 {ghostName} challenged you on Daily #{dailyNumber(ghost.day)} — that day hasn't
+          reached your timezone yet, come back tomorrow!
+        </p>
+      ) : (
+        <p className="sheet-hint ghost-banner">
+          🥊 {ghostName} scored <strong>{ghost.score}/100</strong> on Daily #
+          {dailyNumber(ghost.day)} —{' '}
+          <button
+            className="linklike"
+            onClick={() => pickDay(ghost.day)}
+            disabled={calBusy !== null}
+          >
+            {calBusy === ghost.day ? 'starting…' : 'play it & beat that'}
+          </button>
+        </p>
+      )}
+      {!calOpen && calError && <p className="sheet-hint start-error">{calError}</p>}
+    </>
+  );
+
   const share = async () => {
     if (!shown || busy) return;
     setBusy(true);
     try {
-      // No song name: keeps the text short and doesn't spoil the day's song
-      // for whoever receives it (the image still shows it).
-      const text = `TempoTuner Daily #${day} · 🎯 ${shown.score}/100 · 🔥${streak}\nhttps://tempotuner.app`;
+      // The text is a dare, not a score report — "4 BPM off" makes the reader
+      // want to try, where "71/100" just informs. No song name: doesn't spoil
+      // the day's song for whoever receives it (the image still shows it).
+      // Distance is against the octave the run was felt in, like the scoring.
+      const matched =
+        shown.actual === null
+          ? null
+          : shown.octave === 'half'
+            ? shown.actual / 2
+            : shown.octave === 'double'
+              ? shown.actual * 2
+              : shown.actual;
+      const off = matched === null ? null : Math.round(Math.abs(shown.guess - matched));
+      const feat =
+        off === null
+          ? `I tapped today's song from memory`
+          : off === 0
+            ? `I tapped today's song from memory and hit its exact tempo`
+            : `I tapped today's song from memory and was ${off} BPM off`;
+      const streakPart = streak > 1 ? ` · 🔥${streak}` : '';
+      // The link carries a ghost challenge: whoever opens it sees this name
+      // and score as the mark to beat. (This button only shows on today's
+      // real result, so the challenged day is todayKey.)
+      const nick = getNickname();
+      const url = challengeUrl(
+        nick ? { day: todayKey, score: shown.score, nick } : { day: todayKey, score: shown.score }
+      );
+      const text = `TempoTuner Daily #${day} — ${feat} 🎯 ${shown.score}/100${streakPart}\nbeat my score: ${url}`;
       const blob = await renderDailyShareImage({
         day,
         title: shown.title,
@@ -440,6 +521,16 @@ const DailyModal = ({
                   )}
                 </span>
               )}
+              {ghost && !shown.practice && (shown.dayKey ?? todayKey) === ghost.day && (
+                <span className="ghost-note">
+                  🥊 {ghostName} scored {ghost.score}/100 —{' '}
+                  {shown.score > ghost.score
+                    ? 'you beat them!'
+                    : shown.score === ghost.score
+                      ? "it's a dead tie!"
+                      : 'they still hold it'}
+                </span>
+              )}
               {octaveNote(shown.octave) && <span className="octave-note">{octaveNote(shown.octave)}</span>}
               {shown.wobble > 0 && (
                 <span className="wobble-note">
@@ -449,11 +540,30 @@ const DailyModal = ({
               )}
             </div>
             {!shown.practice && !shown.archive && (
-              <div className="daily-streak-row">
-                <span>🔥 {streak} day streak</span>
-                <HistoryDots results={results} todayKey={todayKey} />
-              </div>
+              <>
+                <div className="daily-streak-row">
+                  <span>🔥 {streak} day streak</span>
+                  <HistoryDots results={results} todayKey={todayKey} />
+                </div>
+                {showInstallNudge && (
+                  <p className="sheet-hint install-nudge">
+                    {streak} days going — keep the streak one tap away:{' '}
+                    {canPromptInstall() ? (
+                      <button className="linklike" onClick={install} disabled={installBusy}>
+                        install TempoTuner
+                      </button>
+                    ) : (
+                      <>tap Share, then “Add to Home Screen”</>
+                    )}
+                    {' · '}
+                    <button className="linklike" onClick={dismissInstall}>
+                      don't ask again
+                    </button>
+                  </p>
+                )}
+              </>
             )}
+            {ghostElsewhere}
             <div className="sheet-actions">
               {shown.actual !== null && (
                 <button
@@ -468,7 +578,7 @@ const DailyModal = ({
               </button>
               {!shown.practice && !shown.archive && (
                 <button className="btn btn-primary" onClick={share} disabled={busy}>
-                  {busy ? 'Creating…' : copied ? 'Copied!' : 'Share'}
+                  {busy ? 'Creating…' : copied ? 'Copied!' : 'Challenge a friend'}
                 </button>
               )}
             </div>
@@ -499,6 +609,13 @@ const DailyModal = ({
           </>
         ) : (
           <>
+            {ghost && ghost.day === todayKey && (
+              <p className="sheet-hint ghost-banner">
+                🥊 <strong>{ghostName}</strong> scored <strong>{ghost.score}/100</strong> on
+                today's daily — beat that!
+              </p>
+            )}
+            {ghostElsewhere}
             <p className="sheet-hint">
               Sing today's song in your head and tap its beat from memory — 16 taps.
             </p>

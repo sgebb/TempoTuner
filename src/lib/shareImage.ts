@@ -193,7 +193,7 @@ export async function renderDailyShareImage(data: DailyShareData): Promise<Blob>
   // Footer
   ctx.fillStyle = muted;
   ctx.font = '36px "Segoe UI", system-ui, sans-serif';
-  ctx.fillText('tempotuner.app — how well do you know your tempo?', 64, H - 60);
+  ctx.fillText('think you can get closer? tempotuner.app', 64, H - 60);
 
   return new Promise((resolve, reject) => {
     canvas.toBlob((blob) => (blob ? resolve(blob) : reject(new Error('canvas export failed'))), 'image/png');

@@ -20,9 +20,14 @@ import {
 } from './lib/daily';
 import { playPreview, stopPreview } from './lib/preview';
 import { fetchDaily, submitRun } from './lib/leaderboard';
+import { Challenge, loadStoredChallenge, readChallengeFromUrl } from './lib/challenge';
 import LeaderboardSheet from './components/LeaderboardSheet';
 
 type Ripple = { id: number; x: number; y: number };
+
+// Parsed before first render: a challenge link auto-opens the daily modal and
+// takes the place of the once-a-day nudge.
+const urlChallenge = readChallengeFromUrl();
 
 const readStoredTarget = (): number | null => {
   const raw = localStorage.getItem('tt-target');
@@ -47,12 +52,20 @@ const App = () => {
   const [lbOpen, setLbOpen] = useState(false);
   // The daily's intro/result modal — the daily is an episode launched from the
   // topbar button, not a separate mode; the practice page is the only page.
-  const [dailyModalOpen, setDailyModalOpen] = useState(false);
+  // Arriving via a challenge link opens it straight away.
+  const [dailyModalOpen, setDailyModalOpen] = useState(urlChallenge !== null);
+  // A friend's score to beat — fresh from the link, or remembered from one
+  // opened earlier (a challenge shouldn't die with the tab).
+  const [ghost] = useState<Challenge | null>(() => urlChallenge ?? loadStoredChallenge());
   // Once per day until played, a modal nudge points at the daily — it doubles
   // as the introduction, since its play button takes you straight there.
   const [nudgeOpen, setNudgeOpen] = useState(() => {
     const key = localDateKey();
-    return !loadDailyResults()[key] && localStorage.getItem('tt-daily-prompted') !== key;
+    return (
+      urlChallenge === null &&
+      !loadDailyResults()[key] &&
+      localStorage.getItem('tt-daily-prompted') !== key
+    );
   });
   const [dailyResults, setDailyResults] = useState<DailyResults>(loadDailyResults);
   // bpm is only known for practice replays (revealed by a scored run) and
@@ -784,6 +797,7 @@ const App = () => {
           day={day}
           dark={dark}
           results={dailyResults}
+          ghost={ghost}
           reveal={runReveal}
           scoring={scoringRun}
           runError={runError}
