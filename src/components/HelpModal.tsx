@@ -1,11 +1,4 @@
-import { clearConsent } from '../lib/analytics';
-
 type Props = { onClose: () => void };
-
-const changeCookieChoice = () => {
-  clearConsent();
-  window.location.reload();
-};
 
 /**
  * Deliberately short — the long-form descriptive copy lives as hidden static
@@ -40,11 +33,8 @@ const HelpModal = ({ onClose }: Props) => (
         </p>
         <p>
           <strong>Privacy</strong>: Taps and recordings never leave your device. The leaderboard
-          stores only your nickname and scores (no account); analytics only if you said yes to
-          cookies.{' '}
-          <button className="linklike" onClick={changeCookieChoice}>
-            Change cookie choice
-          </button>
+          stores only your nickname and scores (no account). Visits are counted anonymously — no
+          cookies, no tracking.
         </p>
       </div>
     </div>

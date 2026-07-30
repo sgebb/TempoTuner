@@ -4,7 +4,6 @@ import { TuningForkMark, ResetArrow } from './components/icons';
 import HelpModal from './components/HelpModal';
 import TargetSheet from './components/TargetSheet';
 import DailyModal, { RunReveal } from './components/DailyModal';
-import ConsentBanner from './components/ConsentBanner';
 import { useMetronome } from './hooks/useMetronome';
 import { useRecorder } from './hooks/useRecorder';
 import { DEMO_BEATS, DEMO_SONG, useDemo } from './hooks/useDemo';
@@ -749,7 +748,6 @@ const App = () => {
         <span key={r.id} className="ripple" style={{ left: r.x, top: r.y }} aria-hidden="true" />
       ))}
 
-      <ConsentBanner />
       {clipPlaying && challenge && (
         <div className="overlay overlay-center" data-no-tap>
           <div className="sheet clip-sheet">
