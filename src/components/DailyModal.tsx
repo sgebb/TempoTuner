@@ -595,9 +595,27 @@ const DailyModal = ({
                 🏆 Leaderboard
               </button>
               {!shown.practice && !shown.archive && (
-                <button className="btn btn-primary" onClick={share} disabled={busy}>
-                  {busy ? 'Creating…' : copied ? 'Copied!' : 'Challenge a friend'}
-                </button>
+                <>
+                  <button className="btn btn-primary" onClick={share} disabled={busy}>
+                    {busy ? 'Creating…' : copied ? 'Copied!' : 'Challenge a friend'}
+                  </button>
+                  <a
+                    href="https://listdle.com/games/tempotuner"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="listdle-badge-link"
+                  >
+                    <img
+                      src={
+                        dark
+                          ? 'https://cdn.listdle.com/badge/dark.png'
+                          : 'https://cdn.listdle.com/badge/light.png'
+                      }
+                      alt="Rate on Listdle"
+                      className="listdle-badge"
+                    />
+                  </a>
+                </>
               )}
             </div>
             {/* on its own line so toggling to "stop" never reflows the buttons */}

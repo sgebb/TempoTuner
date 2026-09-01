@@ -1219,6 +1219,41 @@ body {
   cursor: pointer;
 }
 
+/* Listdle badge */
+.listdle-badge-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  border: none;
+  background: none;
+  padding: 0;
+  cursor: pointer;
+  transition: transform 0.15s ease, filter 0.15s ease;
+  border-radius: 8px;
+}
+
+.listdle-badge-link:active {
+  transform: scale(0.95);
+}
+
+.listdle-badge-link:hover {
+  filter: brightness(0.85);
+}
+
+.listdle-badge {
+  max-width: 140px;
+  height: auto;
+  display: block;
+}
+
+/* On smaller screens, use the compact badge */
+@media (max-width: 500px) {
+  .listdle-badge {
+    max-width: 100px;
+  }
+}
+
 /* short screens: shrink the flourishes first */
 @media (max-height: 620px) {
   .tagline {
