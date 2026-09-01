@@ -608,10 +608,11 @@ const DailyModal = ({
                     <img
                       src={
                         dark
-                          ? 'https://cdn.listdle.com/badge/dark.png'
-                          : 'https://cdn.listdle.com/badge/light.png'
+                          ? 'https://listdle.com/badges/rate-on-listdle-dark.svg'
+                          : 'https://listdle.com/badges/rate-on-listdle-light.svg'
                       }
                       alt="Rate on Listdle"
+                      height="40"
                       className="listdle-badge"
                     />
                   </a>
