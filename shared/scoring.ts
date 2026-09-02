@@ -72,8 +72,8 @@ export function scoreGuess(guess: number, target: number): { score: number; octa
  * while the taps wobbled all over, so high interval variance costs points.
  * A missed or fumbled tap is a stumble, not a wobbly sense of tempo — the
  * worst ~10% of intervals are excluded first, so
- * only sustained unsteadiness is penalized. cv ≲ 4% on the rest is free;
- * it ramps up to −25 from there.
+ * only sustained unsteadiness is penalized. cv ≲ 6% on the rest is free;
+ * it ramps up to −20 from there (gentler than before).
  */
 export function wobblePenalty(bpms: number[]): number {
   if (bpms.length < 4) return 0;
@@ -87,7 +87,7 @@ export function wobblePenalty(bpms: number[]): number {
   const avg = kept.reduce((s, b) => s + b, 0) / kept.length;
   const sd = Math.sqrt(kept.reduce((s, b) => s + (b - avg) ** 2, 0) / kept.length);
   const cv = sd / avg;
-  return Math.max(0, Math.min(25, Math.round((cv - 0.04) * 250)));
+  return Math.max(0, Math.min(20, Math.round((cv - 0.06) * 200)));
 }
 
 /** The run's single BPM guess: median over every interval (robust to stumbles). */

@@ -32,13 +32,18 @@ export function tapsToPoints(taps: number[]): TapPoint[] {
   return points;
 }
 
-/** Median of the last few intervals — what the big number shows. */
+/** Exponential moving average of recent intervals — smooths out jitter while following trends. */
 export function currentBpm(points: TapPoint[]): number | null {
   if (points.length === 0) return null;
-  const recent = points.slice(-4).map((p) => p.bpm).sort((a, b) => a - b);
-  const mid = Math.floor(recent.length / 2);
-  const median = recent.length % 2 ? recent[mid] : (recent[mid - 1] + recent[mid]) / 2;
-  return Math.round(median);
+  // Use last 8 taps with exponential weighting: newer taps matter more
+  const recent = points.slice(-8).map((p) => p.bpm);
+  if (recent.length === 0) return null;
+  let ema = recent[0];
+  const alpha = 0.3; // smoothing factor: higher = more responsive, lower = smoother
+  for (let i = 1; i < recent.length; i++) {
+    ema = alpha * recent[i] + (1 - alpha) * ema;
+  }
+  return Math.round(ema);
 }
 
 export function computeStats(points: TapPoint[]): Stats | null {
