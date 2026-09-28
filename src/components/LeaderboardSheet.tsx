@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react';
+import { Fragment, useCallback, useEffect, useState } from 'react';
 import { DailyResult } from '../lib/daily';
 import {
   LeaderboardData,
@@ -17,7 +17,8 @@ type Props = {
 };
 
 const MEDALS = ['🥇', '🥈', '🥉'];
-const rankBadge = (i: number) => MEDALS[i] ?? `${i + 1}.`;
+const rankBadge = (rank: number) => MEDALS[rank - 1] ?? `${rank}.`;
+const DEFAULT_ALL_TIME_RULES = { attemptWindow: 20, scoresCounted: 15, minimumGames: 8 };
 
 const LeaderboardSheet = ({ todayKey, day, todayResult, onClose }: Props) => {
   const [tab, setTab] = useState<'today' | 'alltime'>('today');
@@ -50,6 +51,12 @@ const LeaderboardSheet = ({ todayKey, day, todayResult, onClose }: Props) => {
     setEditing(false);
     load();
   };
+
+  const allTimeRules = data?.allTimeRules ?? DEFAULT_ALL_TIME_RULES;
+  const pendingAllTime = data?.you && !data.you.eligible ? data.you : null;
+  const pendingRank = pendingAllTime?.allTimeRank;
+  const pendingInsertIndex =
+    pendingRank === null || pendingRank === undefined ? -1 : (data?.allTime.findIndex((entry) => entry.rank >= pendingRank) ?? -1);
 
   return (
     <div className="overlay overlay-center" data-no-tap>
@@ -122,40 +129,78 @@ const LeaderboardSheet = ({ todayKey, day, todayResult, onClose }: Props) => {
                 <ol className="lb-list">
                   {data.today.map((e, i) => (
                     <li key={i} className={`lb-row ${e.you ? 'lb-you' : ''}`}>
-                      <span className="lb-rank">{rankBadge(i)}</span>
+                      <span className="lb-rank">{rankBadge(i + 1)}</span>
                       <span className="lb-nick">{e.nickname}</span>
                       <span className="lb-score">{e.score}</span>
                     </li>
                   ))}
                 </ol>
               )
-            ) : data.allTime.length === 0 ? (
-              <p className="sheet-hint">Nobody on the all-time board yet.</p>
             ) : (
-              <ol className="lb-list">
-                {data.allTime.map((e, i) => (
-                  <li key={i} className={`lb-row ${e.you ? 'lb-you' : ''}`}>
-                    <span className="lb-rank">{rankBadge(i)}</span>
-                    <span className="lb-nick">
-                      {e.nickname} <span className="lb-games">· {e.games} played</span>
-                    </span>
-                    <span className="lb-score">{e.total}</span>
-                  </li>
-                ))}
-              </ol>
+              <>
+                <p className="sheet-hint lb-rules">
+                  Best {allTimeRules.scoresCounted} scores from your latest {allTimeRules.attemptWindow} tries ·{' '}
+                  {allTimeRules.minimumGames} tries to qualify
+                </p>
+                {data.allTime.length === 0 && !pendingAllTime ? (
+                  <p className="sheet-hint">Nobody on the all-time board yet.</p>
+                ) : (
+                  <ol className="lb-list">
+                    {data.allTime.map((e, i) => (
+                      <Fragment key={i}>
+                        {pendingAllTime && pendingInsertIndex === i && (
+                          <li key="pending" className="lb-row lb-pending">
+                            <span className="lb-rank">#{pendingRank}</span>
+                            <span className="lb-nick">
+                              you <span className="lb-games">· {pendingAllTime.games} played</span>
+                            </span>
+                            <span className="lb-score">{pendingAllTime.total}</span>
+                          </li>
+                        )}
+                        <li className={`lb-row ${e.you ? 'lb-you' : ''}`}>
+                          <span className="lb-rank">{rankBadge(e.rank ?? i + 1)}</span>
+                          <span className="lb-nick">
+                            {e.nickname} <span className="lb-games">· {e.games} played</span>
+                          </span>
+                          <span className="lb-score">{e.total}</span>
+                        </li>
+                      </Fragment>
+                    ))}
+                    {pendingAllTime && pendingInsertIndex < 0 && (
+                      <li className="lb-row lb-pending">
+                        <span className="lb-rank">
+                          {pendingAllTime.allTimeRank === null ? '—' : `#${pendingAllTime.allTimeRank}`}
+                        </span>
+                        <span className="lb-nick">
+                          you <span className="lb-games">· {pendingAllTime.games} played</span>
+                        </span>
+                        <span className="lb-score">{pendingAllTime.total}</span>
+                      </li>
+                    )}
+                  </ol>
+                )}
+                {pendingAllTime && (
+                  <p className="sheet-hint lb-pending-note">
+                    You'd be #{pendingAllTime.allTimeRank ?? '—'} — not on the all-time board yet. Play{' '}
+                    {allTimeRules.minimumGames - pendingAllTime.games} more{' '}
+                    {allTimeRules.minimumGames - pendingAllTime.games === 1 ? 'daily' : 'dailies'} to qualify.
+                  </p>
+                )}
+              </>
             )}
 
-            {data?.you && (data.you.todayRank ?? data.you.allTimeRank) !== null && (
+            {data?.you &&
+              (tab === 'today' ? data.you.todayRank !== null : data.you.eligible && data.you.allTimeRank !== null) && (
               <p className="sheet-hint lb-you-line">
                 {tab === 'today'
                   ? data.you.todayRank !== null
                     ? `you're #${data.you.todayRank} today`
                     : "you haven't played today"
                   : data.you.allTimeRank !== null
-                    ? `you're #${data.you.allTimeRank} all-time · ${data.you.total} pts over ${data.you.games} ${data.you.games === 1 ? 'game' : 'games'}`
+                    ? `you're #${data.you.allTimeRank} all-time · ${data.you.total} pts from your best ${allTimeRules.scoresCounted} of the latest ${allTimeRules.attemptWindow} tries`
                     : ''}
               </p>
-            )}
+              )}
           </>
         )}
       </div>

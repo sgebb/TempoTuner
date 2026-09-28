@@ -3,7 +3,7 @@ import { RestError } from '@azure/data-tables';
 import { CHALLENGE_POINTS, dailyNumber, scoreRun } from '../../../shared/scoring';
 import { songForDay } from '../lib/songs';
 import { rateLimit } from '../lib/rateLimit';
-import { DayEntity, PLAYER_PARTITION, PlayerEntity, ensureTable, getTable } from '../lib/store';
+import { DayEntity, ensureTable, getTable } from '../lib/store';
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const DAY_RE = /^\d{4}-\d{2}-\d{2}$/;
@@ -101,34 +101,8 @@ export async function score(req: HttpRequest, context: InvocationContext): Promi
   }
 
   if (stored && nickname) {
-    // Update the all-time aggregate. A lost race only affects the same uuid
-    // double-submitting in the same instant, which createEntity already gates.
-    const playerKey = uuid.toLowerCase();
-    let player: PlayerEntity;
-    try {
-      const existing = await table.getEntity<PlayerEntity>(PLAYER_PARTITION, playerKey);
-      player = {
-        partitionKey: PLAYER_PARTITION,
-        rowKey: playerKey,
-        nickname,
-        totalScore: (existing.totalScore ?? 0) + result.score,
-        games: (existing.games ?? 0) + 1,
-        bestScore: Math.max(existing.bestScore ?? 0, result.score),
-        lastDay: day,
-      };
-    } catch (err) {
-      if (!(err instanceof RestError && err.statusCode === 404)) throw err;
-      player = {
-        partitionKey: PLAYER_PARTITION,
-        rowKey: playerKey,
-        nickname,
-        totalScore: result.score,
-        games: 1,
-        bestScore: result.score,
-        lastDay: day,
-      };
-    }
-    await table.upsertEntity(player, 'Replace');
+    // The all-time board is derived from the recorded daily entries. That
+    // lets it use a fair rolling window without an irreversible accumulator.
     context.log(`score accepted: day=${day} nick=${nickname} score=${result.score}`);
   }
 

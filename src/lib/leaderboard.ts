@@ -28,12 +28,13 @@ export function saveNickname(nick: string) {
 }
 
 export type LeaderboardEntry = { nickname: string; score: number; you?: boolean };
-export type AllTimeEntry = { nickname: string; total: number; games: number; you?: boolean };
+export type AllTimeEntry = { nickname: string; total: number; games: number; rank: number; you?: boolean };
 export type LeaderboardData = {
   day: string;
   today: LeaderboardEntry[];
   allTime: AllTimeEntry[];
-  you: { todayRank: number | null; allTimeRank: number | null; total: number; games: number } | null;
+  you: { todayRank: number | null; allTimeRank: number | null; eligible: boolean; total: number; games: number } | null;
+  allTimeRules: { attemptWindow: number; scoresCounted: number; minimumGames: number };
 };
 
 export async function fetchLeaderboard(day: string): Promise<LeaderboardData> {

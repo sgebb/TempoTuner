@@ -2,12 +2,10 @@ import { TableClient } from '@azure/data-tables';
 
 // One table, two kinds of partitions:
 //   PartitionKey = "2026-07-24" (a day key) → that day's entries, RowKey = uuid
-//   PartitionKey = "player"                 → all-time aggregates, RowKey = uuid
+//   PartitionKey = "player"                 → legacy all-time aggregates, RowKey = uuid
 // Uses the function app's own storage account (AzureWebJobsStorage), so no
 // extra connection string needs configuring.
 const TABLE_NAME = 'leaderboard';
-
-export const PLAYER_PARTITION = 'player';
 
 export type DayEntity = {
   partitionKey: string;
@@ -17,16 +15,6 @@ export type DayEntity = {
   guess: number;
   octave: string;
   wobble: number;
-};
-
-export type PlayerEntity = {
-  partitionKey: string;
-  rowKey: string;
-  nickname: string;
-  totalScore: number;
-  games: number;
-  bestScore: number;
-  lastDay: string;
 };
 
 let client: TableClient | null = null;

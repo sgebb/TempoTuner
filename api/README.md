@@ -16,7 +16,9 @@ app runs (`shared/scoring.ts`), so client and server can't drift.
   return the recorded result). Without one it's scored but not stored. Rejects
   machine-perfect runs and stale/future days.
 - `GET /api/leaderboard?day=YYYY-MM-DD&uuid=...` — top 20 for the day + top 20
-  all-time (by total points) + your ranks.
+  all-time. All-time is the sum of each player's best 15 scores from their
+  most recent 20 attempts; players need 8 attempts to appear. The response
+  still includes a provisional placement for players below that minimum.
 - `keepwarm` timer — pings itself every 5 min so the consumption plan stays warm.
 
 ## Data model (one table: `leaderboard`)
@@ -24,7 +26,10 @@ app runs (`shared/scoring.ts`), so client and server can't drift.
 | PartitionKey | RowKey | contents |
 | --- | --- | --- |
 | `2026-07-24` (day key) | uuid | nickname, score, guess, octave, wobble |
-| `player` | uuid | nickname, totalScore, games, bestScore, lastDay |
+| `player` | uuid | legacy nickname/aggregate data (no longer used for ranking) |
+
+All-time standings are calculated from the daily rows, so the new rules apply
+to existing players without a migration.
 
 Storage uses the function app's own `AzureWebJobsStorage` account — nothing to configure.
 

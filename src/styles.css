@@ -1146,6 +1146,22 @@ body {
   outline: 1.5px dashed var(--accent);
 }
 
+.lb-pending {
+  border: 1.5px dashed var(--muted);
+  color: var(--muted);
+  background: transparent !important;
+}
+
+.lb-rules {
+  margin-bottom: 7px;
+  text-align: center;
+}
+
+.lb-pending-note {
+  margin-top: 10px;
+  text-align: center;
+}
+
 .lb-rank {
   flex: 0 0 34px;
   text-align: center;
