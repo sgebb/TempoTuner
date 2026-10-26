@@ -12,6 +12,8 @@ import {
 type Props = {
   todayKey: string;
   day: number;
+  /** showing a past day's board (opened from the calendar) rather than today's */
+  past?: boolean;
   todayResult: DailyResult | undefined;
   onClose: () => void;
 };
@@ -20,7 +22,7 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 const rankBadge = (rank: number) => MEDALS[rank - 1] ?? `${rank}.`;
 const DEFAULT_ALL_TIME_RULES = { attemptWindow: 20, scoresCounted: 15, minimumGames: 8 };
 
-const LeaderboardSheet = ({ todayKey, day, todayResult, onClose }: Props) => {
+const LeaderboardSheet = ({ todayKey, day, past = false, todayResult, onClose }: Props) => {
   const [tab, setTab] = useState<'today' | 'alltime'>('today');
   const [data, setData] = useState<LeaderboardData | null>(null);
   const [error, setError] = useState(false);
@@ -124,7 +126,7 @@ const LeaderboardSheet = ({ todayKey, day, todayResult, onClose }: Props) => {
               <p className="sheet-hint">loading…</p>
             ) : tab === 'today' ? (
               data.today.length === 0 ? (
-                <p className="sheet-hint">No scores yet today — be the first!</p>
+                <p className="sheet-hint">{past ? 'Nobody on the board that day.' : 'No scores yet today — be the first!'}</p>
               ) : (
                 <ol className="lb-list">
                   {data.today.map((e, i) => (
@@ -194,7 +196,7 @@ const LeaderboardSheet = ({ todayKey, day, todayResult, onClose }: Props) => {
               <p className="sheet-hint lb-you-line">
                 {tab === 'today'
                   ? data.you.todayRank !== null
-                    ? `you're #${data.you.todayRank} today`
+                    ? `you're #${data.you.todayRank} ${past ? 'that day' : 'today'}`
                     : "you haven't played today"
                   : data.you.allTimeRank !== null
                     ? `you're #${data.you.allTimeRank} all-time · ${data.you.total} pts from your best ${allTimeRules.scoresCounted} of the latest ${allTimeRules.attemptWindow} tries`

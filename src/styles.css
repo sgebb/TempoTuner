@@ -128,29 +128,7 @@ body {
   transform: scale(0.92);
 }
 
-/* the daily challenge entrance — a playful callout in the topbar */
-.daily-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 7px;
-  height: 36px;
-  padding: 6px 14px;
-  border-radius: 999px;
-  border: 1.5px solid var(--accent);
-  background: var(--accent-soft);
-  color: var(--fg);
-  font-family: inherit;
-  font-size: 13.5px;
-  font-weight: 800;
-  white-space: nowrap;
-  cursor: pointer;
-}
-
-.daily-btn:active {
-  transform: scale(0.95);
-}
-
-/* Narrow phones: the topbar holds logo + daily button + trophy — shrink type
+/* Narrow phones: the topbar holds the logo + three round buttons — shrink
    so nothing collides or gets pushed off-screen. */
 @media (max-width: 430px) {
   .logo {
@@ -166,18 +144,350 @@ body {
   .topbar-buttons {
     gap: 6px;
   }
-  .daily-btn {
-    gap: 5px;
-    padding: 6px 10px;
-    font-size: 12.5px;
+}
+
+.topbar .icon-btn {
+  width: 44px;
+  height: 44px;
+  font-size: 19px;
+}
+
+@media (max-width: 340px) {
+  .topbar .icon-btn {
+    width: 38px;
+    height: 38px;
   }
 }
 
-/* Truly tiny screens: "🎵 daily #123" becomes "🎵 #123". */
-@media (max-width: 350px) {
-  .daily-word {
-    display: none;
-  }
+/* sits right under the topbar; the arrow's tip lands below the 🏆 (the
+   middle of the three 44px buttons, so ~74px from the right edge) */
+.lb-callout {
+  order: -1; /* above the top spacer, so it stays glued to the topbar */
+  align-self: flex-end;
+  display: flex;
+  align-items: flex-end;
+  gap: 2px;
+  margin: -10px 58px 0 0;
+  font-size: clamp(18px, 5vmin, 22px);
+  transform: rotate(-2deg);
+}
+
+.lb-callout-arrow {
+  width: 28px;
+  height: 34px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+/* the score is the headline, today's rank right beside it */
+.score-hero {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+}
+
+.score-big {
+  font-size: clamp(56px, 18vmin, 76px);
+  font-weight: 800;
+  line-height: 1;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.score-of {
+  font-size: 0.4em;
+  color: var(--muted);
+  letter-spacing: 0;
+}
+
+.rank-pill {
+  padding: 7px 14px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  border: 1.5px solid var(--accent);
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 15px;
+  font-weight: 800;
+  white-space: nowrap;
+  cursor: pointer;
+  animation: fade-in 0.4s ease-out 0.9s backwards;
+}
+
+.rank-pill:active {
+  transform: scale(0.95);
+}
+
+/* "Challenge a friend" with the speaker beside it; the speaker's callout
+   hangs underneath, so the row reserves room for it */
+.share-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.listen-wrap {
+  position: relative;
+}
+
+.listen-btn {
+  width: 48px;
+  height: 48px;
+  font-size: 21px;
+}
+
+.listen-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.listen-on {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+.listen-callout {
+  position: absolute;
+  top: calc(100% + 2px);
+  right: 12px; /* arrow tip ends under the speaker; text runs off to the left */
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 18px;
+  white-space: nowrap;
+  transform: rotate(-2deg);
+}
+
+.listen-callout a {
+  color: var(--accent);
+}
+
+.listen-callout-arrow {
+  width: 24px;
+  height: 22px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+/* a practice try of today's song, shown under the real result */
+.practice-result {
+  display: flex;
+  align-items: baseline;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 4px 10px;
+  padding: 4px 14px;
+  border: 1.5px dashed var(--border);
+  border-radius: 14px;
+  font-size: 15px;
+  font-weight: 700;
+  animation: fade-in 0.35s ease-out;
+}
+
+.practice-result strong {
+  font-size: 22px;
+  font-weight: 800;
+}
+
+.practice-tag {
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.practice-sub {
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.btn-small {
+  padding: 7px 16px;
+  font-size: 14px;
+}
+
+/* ---------- home: the daily is the page ---------- */
+/* nothing on home counts as a beat, so it may scroll like a normal page */
+.app-home {
+  touch-action: auto;
+  cursor: default;
+  user-select: text;
+  -webkit-user-select: text;
+}
+
+.home {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0 6px;
+}
+
+/* growing spacers centre the card vertically, yet a tall card still scrolls
+   from its top (justify-content: center would clip it) */
+.home::before,
+.home::after {
+  content: '';
+  flex: 1 0 0;
+}
+
+.daily-card {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px 20px;
+  border: 1.5px solid var(--border);
+  border-radius: 22px;
+  background: var(--card);
+  animation: slide-up 0.22s ease-out;
+}
+
+.daily-new {
+  padding: 2px 9px;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #241a05;
+  font-size: 11.5px;
+  font-weight: 800;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.cal-btn-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.cal-btn {
+  width: 48px;
+  height: 48px;
+  font-size: 24px;
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* hand-drawn nudge pointing at the calendar */
+.cal-callout {
+  display: inline-flex;
+  align-items: flex-end;
+  gap: 2px;
+  font-size: 17px;
+  white-space: nowrap;
+  transform: rotate(-3deg) translateY(4px);
+}
+
+.cal-callout-arrow {
+  width: 26px;
+  height: 18px;
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+
+.home-listdle {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  justify-content: flex-end;
+  margin-top: -2px;
+}
+
+.daily-pitch {
+  font-size: 16px;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.daily-pitch strong {
+  color: var(--accent);
+}
+
+.sheet-actions.sheet-actions-center {
+  justify-content: center;
+}
+
+.btn-big {
+  padding: 13px 28px;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.home-footer {
+  display: flex;
+  justify-content: center;
+  padding-top: 6px;
+  cursor: default;
+}
+
+.practice-btn {
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 11px 16px;
+  border: 1.5px dashed var(--border);
+  border-radius: 18px;
+  background: transparent;
+  color: var(--fg);
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: transform 0.1s ease, background 0.15s ease;
+}
+
+.practice-btn:hover {
+  background: var(--card);
+}
+
+.practice-btn:active {
+  transform: scale(0.98);
+}
+
+.practice-btn-icon {
+  font-size: 24px;
+}
+
+.practice-btn-text {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.practice-btn-text strong {
+  font-size: 15px;
+  font-weight: 800;
+}
+
+.practice-btn-text span {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.practice-btn-arrow {
+  font-size: 26px;
+  line-height: 1;
+  color: var(--muted);
+}
+
+/* practice mode's way back, in the spot left of the big number */
+.back-chip {
+  height: 44px;
+  padding: 0 16px;
+  font-size: 16px;
+  font-weight: 800;
 }
 
 /* ---------- squiggly helper text ---------- */
@@ -269,8 +579,9 @@ body {
 /* the bullseye grows into a pill showing the number once a target is set */
 .target-btn {
   width: auto;
-  min-width: 36px;
-  padding: 0 10px;
+  height: 44px;
+  min-width: 44px;
+  padding: 0 14px;
   gap: 6px;
   border-radius: 999px;
 }
@@ -281,12 +592,12 @@ body {
 }
 
 .target-emoji {
-  font-size: 17px;
+  font-size: 20px;
   line-height: 1;
 }
 
 .target-val {
-  font-size: 13px;
+  font-size: 16px;
   font-weight: 800;
   font-variant-numeric: tabular-nums;
 }
@@ -297,8 +608,8 @@ body {
   display: flex;
   align-items: flex-start;
   gap: 4px;
-  margin-right: 28px;
-  font-size: clamp(14px, 3.8vmin, 17px);
+  margin-right: 36px;
+  font-size: clamp(17px, 4.6vmin, 21px);
   transform: rotate(-1.5deg);
 }
 
@@ -307,35 +618,6 @@ body {
   height: 20px;
   flex: 0 0 auto;
   color: var(--accent);
-}
-
-.chip-x {
-  opacity: 0.6;
-  padding: 0 2px;
-}
-
-.chip-x:hover {
-  opacity: 1;
-}
-
-.pulse-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent);
-  animation: pulse-dot 1.6s ease-in-out infinite;
-}
-
-@keyframes pulse-dot {
-  0%,
-  100% {
-    transform: scale(1);
-    opacity: 1;
-  }
-  50% {
-    transform: scale(1.5);
-    opacity: 0.55;
-  }
 }
 
 /* ---------- daily challenge run ---------- */
@@ -819,15 +1101,16 @@ body {
 .reveal-row {
   display: flex;
   justify-content: center;
-  gap: 44px;
+  gap: 40px;
 }
 
 .reveal-cell {
   text-align: center;
 }
 
+/* the BPM comparison — secondary to the score above it */
 .reveal-num {
-  font-size: 54px;
+  font-size: 30px;
   font-weight: 800;
   line-height: 1;
   font-variant-numeric: tabular-nums;
@@ -870,8 +1153,9 @@ body {
   font-weight: 700;
 }
 
-.reveal-score strong {
-  font-size: 22px;
+/* only the octave/wobble/ghost notes live here now — often none */
+.reveal-score:empty {
+  display: none;
 }
 
 .octave-note {
@@ -889,12 +1173,6 @@ body {
   text-align: center;
 }
 
-.rank-note {
-  font-size: 13px;
-  font-weight: 700;
-  color: var(--muted);
-}
-
 /* the challenge verdict on the reveal — same handwriting as the octave note */
 .ghost-note {
   font-family: 'Caveat', 'Segoe Script', cursive;
@@ -907,10 +1185,6 @@ body {
 /* "X scored 71/100 — beat that!" banner on the intro */
 .ghost-banner strong {
   color: var(--accent);
-}
-
-.preview-line {
-  text-align: center;
 }
 
 .linklike:disabled {
@@ -970,11 +1244,6 @@ body {
 }
 
 /* ---------- past-dailies calendar ---------- */
-.cal-toggle-on {
-  border-color: var(--accent);
-  background: var(--accent-soft);
-}
-
 .cal-head {
   display: flex;
   align-items: center;
@@ -1032,15 +1301,29 @@ body {
   opacity: 0.4;
 }
 
-/* missed and still-unplayed days are the clickable ones */
-.cal-missed {
-  border-color: var(--bad);
-  color: var(--bad);
+.cal-cell:enabled {
   cursor: pointer;
 }
 
-.cal-missed:enabled:active {
+.cal-cell:enabled:active {
   transform: scale(0.9);
+}
+
+.cal-missed {
+  border-color: var(--bad);
+  color: var(--bad);
+}
+
+/* today, not played yet */
+.cal-open {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+
+/* the day whose details are shown below */
+.cal-cell.cal-sel {
+  box-shadow: 0 0 0 2px var(--bg), 0 0 0 4.5px var(--fg);
+  transform: scale(1.08);
 }
 
 .cal-done {
@@ -1058,16 +1341,6 @@ body {
 .cal-today {
   outline: 2px solid var(--accent);
   outline-offset: 1.5px;
-}
-
-.cal-busy {
-  animation: cal-busy 0.9s ease-in-out infinite;
-}
-
-@keyframes cal-busy {
-  50% {
-    opacity: 0.35;
-  }
 }
 
 .cal-legend {
@@ -1092,6 +1365,80 @@ body {
   border-radius: 50%;
   border: 1.5px solid var(--border);
   display: inline-block;
+}
+
+/* the selected day's panel under the calendar */
+/* tall enough that a phone fits the month and the day panel without scrolling */
+.overlay-center .cal-sheet {
+  gap: 12px;
+  max-height: 94dvh;
+}
+
+.day-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 16px;
+  border: 1.5px solid var(--border);
+  border-radius: 16px;
+  background: var(--card);
+}
+
+.day-detail-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.day-detail-num {
+  font-size: 15px;
+  font-weight: 800;
+  color: var(--accent);
+}
+
+.day-detail-date {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.day-detail-song strong {
+  font-size: 20px;
+}
+
+.day-detail-you {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 10px;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.day-detail-sub {
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--muted);
+}
+
+.day-detail-label {
+  margin-bottom: 4px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.day-detail-more {
+  margin-top: 6px;
+  text-align: center;
+}
+
+.lb-compact .lb-row {
+  padding: 4px 8px;
+  font-size: 14px;
 }
 
 /* leaderboard sheet */
