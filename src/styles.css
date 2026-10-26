@@ -162,7 +162,6 @@ body {
 /* sits right under the topbar; the arrow's tip lands below the 🏆 (the
    middle of the three 44px buttons, so ~74px from the right edge) */
 .lb-callout {
-  order: -1; /* above the top spacer, so it stays glued to the topbar */
   align-self: flex-end;
   display: flex;
   align-items: flex-end;
@@ -220,8 +219,8 @@ body {
   transform: scale(0.95);
 }
 
-/* "Challenge a friend" with the speaker beside it; the speaker's callout
-   hangs underneath, so the row reserves room for it */
+/* ↻ · "Challenge a friend" · 🔊 — the round buttons' callouts hang
+   underneath, so the row reserves room for them */
 .share-row {
   display: flex;
   align-items: center;
@@ -230,17 +229,35 @@ body {
   margin-bottom: 22px;
 }
 
-.listen-wrap {
-  position: relative;
+@media (max-width: 400px) {
+  .share-row {
+    gap: 8px;
+  }
+  .share-row .btn-primary {
+    padding: 10px 15px;
+    font-size: 14.5px;
+  }
+  .side-btn {
+    width: 44px;
+    height: 44px;
+  }
+  .side-callout {
+    font-size: 16px;
+  }
 }
 
-.listen-btn {
+.side-btn-wrap {
+  position: relative;
+  flex: 0 0 auto;
+}
+
+.side-btn {
   width: 48px;
   height: 48px;
   font-size: 21px;
 }
 
-.listen-btn:disabled {
+.side-btn:disabled {
   opacity: 0.4;
   cursor: default;
 }
@@ -250,10 +267,10 @@ body {
   background: var(--accent-soft);
 }
 
-.listen-callout {
+/* hangs under its round button, arrow tip pointing up at it */
+.side-callout {
   position: absolute;
   top: calc(100% + 2px);
-  right: 12px; /* arrow tip ends under the speaker; text runs off to the left */
   display: inline-flex;
   align-items: flex-end;
   gap: 2px;
@@ -262,17 +279,30 @@ body {
   transform: rotate(-2deg);
 }
 
-.listen-callout a {
+/* ↻ on the left: arrow first, text runs off to the right */
+.side-callout-left {
+  left: 12px;
+}
+
+.side-callout-left .side-callout-arrow {
+  transform: scaleX(-1);
+}
+
+/* 🔊 on the right: text first, runs off to the left */
+.side-callout-right {
+  right: 12px;
+}
+
+.side-callout a {
   color: var(--accent);
 }
 
-.listen-callout-arrow {
+.side-callout-arrow {
   width: 24px;
   height: 22px;
   flex: 0 0 auto;
   color: var(--accent);
 }
-
 /* a practice try of today's song, shown under the real result */
 .practice-result {
   display: flex;
@@ -306,11 +336,6 @@ body {
   color: var(--muted);
 }
 
-.btn-small {
-  padding: 7px 16px;
-  font-size: 14px;
-}
-
 /* ---------- home: the daily is the page ---------- */
 /* nothing on home counts as a beat, so it may scroll like a normal page */
 .app-home {
@@ -333,9 +358,7 @@ body {
 
 /* growing spacers centre the card vertically, yet a tall card still scrolls
    from its top (justify-content: center would clip it) */
-.home::before,
-.home::after {
-  content: '';
+.home-spacer {
   flex: 1 0 0;
 }
 
@@ -383,8 +406,32 @@ body {
   align-items: flex-end;
   gap: 2px;
   font-size: 17px;
-  white-space: nowrap;
+  line-height: 1;
+  text-align: right;
   transform: rotate(-3deg) translateY(4px);
+}
+
+/* the card title never wraps — the callout beside it gives way instead */
+.daily-card .sheet-header h2 {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+.daily-card .sheet-header {
+  gap: 8px;
+}
+
+@media (max-width: 400px) {
+  .cal-callout {
+    font-size: 15px;
+    max-width: 92px; /* "try older / songs" on two lines */
+  }
+}
+
+@media (max-width: 330px) {
+  .cal-callout {
+    display: none;
+  }
 }
 
 .cal-callout-arrow {
@@ -423,9 +470,9 @@ body {
 }
 
 .home-footer {
+  width: 100%;
   display: flex;
   justify-content: center;
-  padding-top: 6px;
   cursor: default;
 }
 
@@ -1627,5 +1674,50 @@ body {
   }
   .controls-hint {
     display: none;
+  }
+}
+
+/* Phones: the after-play card is the tallest thing on home — tighten it so
+   the card and the practice bar fit without scrolling on common sizes */
+@media (max-height: 760px) {
+  .home {
+    gap: 6px;
+  }
+  .daily-card {
+    gap: 9px;
+    padding: 14px 16px 16px;
+  }
+  .daily-song strong {
+    font-size: 21px;
+  }
+  .score-big {
+    font-size: 54px;
+  }
+  .reveal-num {
+    font-size: 24px;
+  }
+  .reveal-cap {
+    margin-top: 2px;
+    font-size: 11px;
+  }
+  .rank-pill {
+    padding: 5px 12px;
+    font-size: 14px;
+  }
+  .share-row {
+    margin-bottom: 18px;
+  }
+  .lb-callout {
+    margin-top: -12px;
+    font-size: 18px;
+  }
+  .lb-callout-arrow {
+    height: 26px;
+  }
+  .practice-btn {
+    padding: 8px 14px;
+  }
+  .listdle-badge {
+    max-width: 88px;
   }
 }

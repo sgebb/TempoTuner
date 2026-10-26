@@ -464,7 +464,40 @@ const DailyCard = ({
               </>
             )}
             {ghostElsewhere}
+            {/* ↻ · main action · 🔊 — the two round buttons each get a
+                hand-drawn label hanging underneath */}
             <div className="share-row">
+              {shown.actual !== null && (
+                <span className="side-btn-wrap">
+                  <button
+                    className="icon-btn side-btn"
+                    onClick={() =>
+                      onStartPractice(
+                        shown.title,
+                        shown.artist,
+                        shown.actual!,
+                        shown.dayKey && shown.dayNum ? { key: shown.dayKey, number: shown.dayNum } : null
+                      )
+                    }
+                    title="Replay this song — the score isn't saved"
+                    aria-label="Try again (doesn't count)"
+                  >
+                    ↻
+                  </button>
+                  <span className="side-callout side-callout-left squiggle" aria-hidden="true">
+                    <svg className="side-callout-arrow" viewBox="0 0 30 28">
+                      <path
+                        d="M4 24 C 14 24, 22 18, 24 4 M24 4 l -6 6 M24 4 l 5 7"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                      />
+                    </svg>
+                    try again
+                  </span>
+                </span>
+              )}
               {sideRun ? (
                 <button className="btn btn-primary" onClick={onDismissReveal}>
                   Back to today
@@ -475,9 +508,9 @@ const DailyCard = ({
                 </button>
               )}
               {apiConfigured() && (
-                <span className="listen-wrap">
+                <span className="side-btn-wrap">
                   <button
-                    className={`icon-btn listen-btn${previewPlaying ? ' listen-on' : ''}`}
+                    className={`icon-btn side-btn${previewPlaying ? ' listen-on' : ''}`}
                     onClick={toggleListen}
                     disabled={preview !== null && !preview.url}
                     aria-label={previewPlaying ? 'Stop the song' : 'Listen to the original'}
@@ -486,7 +519,7 @@ const DailyCard = ({
                   </button>
                   {/* hangs under the speaker; while playing it turns into the
                       Apple Music attribution */}
-                  <span className="listen-callout squiggle">
+                  <span className="side-callout side-callout-right squiggle">
                     {previewPlaying && preview?.trackUrl ? (
                       <a href={preview.trackUrl} target="_blank" rel="noreferrer">
                         from Apple Music ↗
@@ -496,7 +529,7 @@ const DailyCard = ({
                     ) : (
                       'listen to the original'
                     )}
-                    <svg className="listen-callout-arrow" viewBox="0 0 30 28" aria-hidden="true">
+                    <svg className="side-callout-arrow" viewBox="0 0 30 28" aria-hidden="true">
                       <path
                         d="M4 24 C 14 24, 22 18, 24 4 M24 4 l -6 6 M24 4 l 5 7"
                         fill="none"
@@ -509,24 +542,6 @@ const DailyCard = ({
                 </span>
               )}
             </div>
-            {shown.actual !== null && (
-              <div className="sheet-actions sheet-actions-center">
-                <button
-                  className="btn btn-ghost btn-small"
-                  onClick={() =>
-                    onStartPractice(
-                      shown.title,
-                      shown.artist,
-                      shown.actual!,
-                      shown.dayKey && shown.dayNum ? { key: shown.dayKey, number: shown.dayNum } : null
-                    )
-                  }
-                  title="Replay this song — the score isn't saved"
-                >
-                  ↻ Try again
-                </button>
-              </div>
-            )}
           </>
         ) : (
           <>

@@ -499,9 +499,11 @@ const App = () => {
                   />
                 </svg>
               </p>
-            ) : (
-              <p className="squiggle tagline home-tagline">how well do you know the beat?</p>
-            )}
+            ) : null}
+            {/* growing spacers centre the card; when it doesn't fit, the whole
+                page (footer included) scrolls instead of clipping */}
+            <div className="home-spacer" />
+            {!todayResult && <p className="squiggle tagline home-tagline">how well do you know the beat?</p>}
             <DailyCard
               todayKey={todayKey}
               day={day}
@@ -519,21 +521,22 @@ const App = () => {
               onCalendar={openCalendar}
               onDismissReveal={() => setRunReveal(null)}
             />
+            <div className="home-spacer" />
+            <footer className="home-footer" data-no-tap>
+              <button className="practice-btn" onClick={openPractice}>
+                <span className="practice-btn-icon" aria-hidden="true">
+                  🥁
+                </span>
+                <span className="practice-btn-text">
+                  <strong>Practice mode</strong>
+                  <span>free tapping · metronome · recording</span>
+                </span>
+                <span className="practice-btn-arrow" aria-hidden="true">
+                  ›
+                </span>
+              </button>
+            </footer>
           </main>
-          <footer className="home-footer" data-no-tap>
-            <button className="practice-btn" onClick={openPractice}>
-              <span className="practice-btn-icon" aria-hidden="true">
-                🥁
-              </span>
-              <span className="practice-btn-text">
-                <strong>Practice mode</strong>
-                <span>free tapping · metronome · recording</span>
-              </span>
-              <span className="practice-btn-arrow" aria-hidden="true">
-                ›
-              </span>
-            </button>
-          </footer>
         </>
       ) : (
         <>
